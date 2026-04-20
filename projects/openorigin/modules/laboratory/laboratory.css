@@ -1,0 +1,42 @@
+feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(34, 197, 94, 0.14);
+  box-shadow: inset 0 0 18px rgba(34, 197, 94, 0.05);
+}
+
+.feature-name {
+  font-size: 13px;
+}
+
+.feature-status {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-secondary);
+}
+
+.feature-status.coming-soon {
+  background: rgba(34, 197, 94, 0.12);
+  color: #9ef5bc;
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.18);
+}
+
+.module-empty-copy {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
