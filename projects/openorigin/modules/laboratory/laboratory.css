@@ -1,42 +1,122 @@
-feature-list {
+.laboratory-dashboard {
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+}
+
+.lab-panel-large {
+  min-height: 720px;
+}
+
+.org-intro-copy,
+.module-empty-copy {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.org-tree-preview {
+  margin-top: 18px;
+}
+
+.org-root-node {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.org-dept-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.org-dept-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.org-node-card,
+.org-slot-card {
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+  box-shadow: inset 0 0 18px rgba(34, 197, 94, 0.05);
+}
+
+.org-node-root {
+  width: min(420px, 100%);
+  box-shadow: inset 0 0 0 1px rgba(124, 58, 237, 0.16), 0 0 22px rgba(124, 58, 237, 0.12);
+}
+
+.org-slot-grid {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.feature-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  background: rgba(255,255,255,0.03);
-  border-radius: 12px;
-  border: 1px solid rgba(34, 197, 94, 0.14);
-  box-shadow: inset 0 0 18px rgba(34, 197, 94, 0.05);
-}
-
-.feature-name {
+.org-node-name,
+.org-slot-name {
   font-size: 13px;
+  font-weight: 700;
+  color: #b9f8cd;
+  margin-bottom: 6px;
 }
 
-.feature-status {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.05);
+.org-node-role,
+.org-slot-role {
+  font-size: 11px;
   color: var(--text-secondary);
+  margin-bottom: 6px;
 }
 
-.feature-status.coming-soon {
-  background: rgba(34, 197, 94, 0.12);
-  color: #9ef5bc;
-  box-shadow: 0 0 14px rgba(34, 197, 94, 0.18);
+.org-node-duty,
+.org-slot-duty {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-primary);
 }
 
-.module-empty-copy {
+.worksheet-section + .worksheet-section {
+  margin-top: 18px;
+}
+
+.worksheet-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #b9f8cd;
+  margin-bottom: 10px;
+}
+
+.worksheet-list {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   color: var(--text-secondary);
   font-size: 12px;
-  line-height: 1.6;
+}
+
+.note-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.note-line {
+  min-height: 34px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px dashed rgba(34, 197, 94, 0.18);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+@media (max-width: 1080px) {
+  .laboratory-dashboard,
+  .org-dept-grid {
+    grid-template-columns: 1fr;
+  }
 }
