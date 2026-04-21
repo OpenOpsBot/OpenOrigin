@@ -1,14 +1,14 @@
+// Ops Module - Client Operations Command Center
 class OpsModule {
   constructor() {
     this.view = null;
     this.refreshInterval = null;
     this.sessionsCache = [];
+    this.clientOpsData = null;
   }
 
   show() {
-    if (!this.view) {
-      this.render();
-    }
+    if (!this.view) this.render();
     this.view.classList.add('active');
     this.startAutoRefresh();
   }
@@ -20,15 +20,12 @@ class OpsModule {
 
   startAutoRefresh() {
     this.stopAutoRefresh();
-    this.refreshMissionControl();
-    this.refreshInterval = setInterval(() => this.refreshMissionControl(), 30000);
+    this.refreshAll();
+    this.refreshInterval = setInterval(() => this.refreshAll(), 30000);
   }
 
   stopAutoRefresh() {
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-      this.refreshInterval = null;
-    }
+    if (this.refreshInterval) { clearInterval(this.refreshInterval); this.refreshInterval = null; }
   }
 
   render() {
@@ -38,7 +35,11 @@ class OpsModule {
     this.view.innerHTML = `
       <div class="section-title">运营模块</div>
       <div class="dashboard ops-dashboard">
-        ${this.renderMissionControl()}
+        ${this.renderClientOpsHeader()}
+        ${this.renderStageLanes()}
+        ${this.renderDeliverablesTable()}
+        ${this.renderOpsStats()}
+        ${this.renderSeatOverview()}
       </div>
       ${this.renderSessionModal()}
     `;
@@ -47,83 +48,124 @@ class OpsModule {
     if (window.lucide) window.lucide.createIcons();
   }
 
-  bindEvents() {
-    const previews = this.view.querySelector('#mcSessionPreviews');
-    const closeBtn = this.view.querySelector('#sessionModalClose');
-    const backdrop = this.view.querySelector('#sessionModalBackdrop');
+  // ---- Sub-panel Renderers ----
 
-    previews.addEventListener('click', (e) => {
-      const card = e.target.closest('.session-preview-card');
-      if (!card) return;
-      const key = card.dataset.sessionKey;
-      const session = this.sessionsCache.find(s => s.key === key);
-      if (session) this.openSessionModal(session);
-    });
-
-    closeBtn.addEventListener('click', () => this.closeSessionModal());
-    backdrop.addEventListener('click', (e) => {
-      if (e.target === backdrop) this.closeSessionModal();
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') this.closeSessionModal();
-    });
-  }
-
-  renderMissionControl() {
+  renderClientOpsHeader() {
     return `
-      <div class="panel mission-control mission-control-main">
+      <div class="panel ops-clients-header">
         <div class="panel-header">
-          <i data-lucide="activity"></i>
-          任务控制中心
+          <i data-lucide="users"></i>
+          客户工作台
         </div>
         <div class="panel-body">
-          <div class="mc-top-grid">
-            <div class="mc-section model-focus-card">
-              <div class="mc-section-title">当前模型</div>
-              <div class="mc-model-info" id="mcModelInfo">
-                <span class="status-dot online"></span>
-                <span id="currentModel">--</span>
-              </div>
-            </div>
-            <div class="mc-section model-focus-card">
-              <div class="mc-section-title">多模型预览</div>
-              <div class="model-preview-grid">
-                <div class="inline-model-card live">
-                  <div class="inline-model-name">MiniMax M2.7</div>
-                  <div class="inline-model-state online">在线</div>
-                </div>
-                <div class="inline-model-card offline-demo">
-                  <div class="inline-model-name">Codex 5.4</div>
-                  <div class="inline-model-state offline">离线</div>
-                </div>
-              </div>
-            </div>
+          <div class="clients-row" id="clientsRow">
+            <div class="mc-loading">加载中...</div>
           </div>
+        </div>
+      </div>
+    `;
+  }
 
-          <div class="mc-section">
-            <div class="mc-section-title">活跃会话</div>
-            <div class="mc-sessions" id="mcSessions">
-              <div class="mc-loading">加载中...</div>
-            </div>
+  renderStageLanes() {
+    const stages = [
+      { key: 'intake',    label: '需求接收',   color: '#a78bfa' },
+      { key: 'scoping',   label: '范围界定',   color: '#818cf8' },
+      { key: 'execution', label: '执行中',     color: '#ffd89a' },
+      { key: 'review',   label: '审核',       color: '#a3e635' },
+      { key: 'delivered',label: '已交付',     color: '#06b6d4' },
+      { key: 'renewal',  label: '续约',       color: '#22c55e' }
+    ];
+    return `
+      <div class="panel stage-lanes-panel">
+        <div class="panel-header">
+          <i data-lucide="git-branch"></i>
+          任务流程
+        </div>
+        <div class="panel-body">
+          <div class="stage-lanes" id="stageLanes">
+            ${stages.map(s => `
+              <div class="stage-lane" data-stage="${s.key}">
+                <div class="stage-lane-label" style="color:${s.color}">${s.label}</div>
+                <div class="stage-lane-tasks" id="lane_${s.key}">
+                  <div class="lane-empty">--</div>
+                </div>
+              </div>
+            `).join('')}
           </div>
+        </div>
+      </div>
+    `;
+  }
 
-          <div class="mc-section">
-            <div class="mc-section-title">会话预览（点击展开）</div>
-            <div class="mc-session-previews" id="mcSessionPreviews">
-              <div class="mc-empty">--</div>
+  renderDeliverablesTable() {
+    return `
+      <div class="panel deliverables-panel">
+        <div class="panel-header">
+          <i data-lucide="file-check"></i>
+          可交付成果追踪
+        </div>
+        <div class="panel-body">
+          <div class="deliverables-table-wrap">
+            <table class="deliverables-table" id="deliverablesTable">
+              <thead>
+                <tr>
+                  <th>客户</th>
+                  <th>可交付成果</th>
+                  <th>负责人</th>
+                  <th>SLA</th>
+                  <th>状态</th>
+                </tr>
+              </thead>
+              <tbody id="deliverablesBody">
+                <tr><td colspan="5" class="mc-loading">加载中...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderOpsStats() {
+    return `
+      <div class="panel ops-stats-panel">
+        <div class="panel-header">
+          <i data-lucide="layout-dashboard"></i>
+          运营仪表盘
+        </div>
+        <div class="panel-body">
+          <div class="ops-stats-grid" id="opsStatsGrid">
+            <div class="ops-stat-card">
+              <div class="ops-stat-value" id="statActiveClients">--</div>
+              <div class="ops-stat-label">活跃客户</div>
+            </div>
+            <div class="ops-stat-card">
+              <div class="ops-stat-value" id="statTasksDueSoon">--</div>
+              <div class="ops-stat-label">本周到期</div>
+            </div>
+            <div class="ops-stat-card warning">
+              <div class="ops-stat-value" id="statHighPriority">--</div>
+              <div class="ops-stat-label">高优先级</div>
+            </div>
+            <div class="ops-stat-card danger">
+              <div class="ops-stat-value" id="statBlocked">--</div>
+              <div class="ops-stat-label">被阻塞</div>
             </div>
           </div>
         </div>
       </div>
+    `;
+  }
 
-      <div class="panel cron-health">
+  renderSeatOverview() {
+    return `
+      <div class="panel seat-overview-panel">
         <div class="panel-header">
-          <i data-lucide="clock"></i>
-          定时任务健康状态
+          <i data-lucide="contact"></i>
+          坐席概览
         </div>
         <div class="panel-body">
-          <div class="cron-list" id="cronList">
+          <div class="seat-grid" id="seatGrid">
             <div class="mc-loading">加载中...</div>
           </div>
         </div>
@@ -147,130 +189,164 @@ class OpsModule {
     `;
   }
 
-  async refreshMissionControl() {
-    await Promise.all([this.loadSessionsWithModel(), this.loadCronHealth()]);
+  // ---- Data Loading ----
+
+  async refreshAll() {
+    await Promise.all([this.loadClientOps(), this.loadSessions()]);
   }
 
-  async loadSessionsWithModel() {
-    const modelEl = document.getElementById('currentModel');
-    const sessionsEl = document.getElementById('mcSessions');
-    const previewsEl = document.getElementById('mcSessionPreviews');
-    if (!sessionsEl || !previewsEl) return;
-
+  async loadClientOps() {
     try {
-      const resp = await fetch('/api/sessions');
+      const resp = await fetch('/api/client-ops');
       const data = await resp.json();
+      if (data.error) return;
+      this.clientOpsData = data;
+      this.renderClients(data.clients || []);
+      this.renderStageLanesData(data.tasks || []);
+      this.renderDeliverables(data.deliverables || []);
+      this.renderOpsStats(data);
+      this.renderSeats(data.seats || []);
+    } catch (e) { /* silent fail */ }
+  }
 
-      if (data.error) {
-        if (modelEl) modelEl.textContent = '无法获取';
-        sessionsEl.innerHTML = '<div class="mc-error">无法加载会话</div>';
-        previewsEl.innerHTML = '<div class="mc-error">无法加载</div>';
-        return;
-      }
-
-      const sessions = data.sessions || [];
-      this.sessionsCache = sessions;
-      const count = data.count || 0;
-
-      if (modelEl) {
-        if (sessions.length > 0) {
-          const s = sessions[0];
-          modelEl.textContent = `${s.modelProvider}/${s.model}`;
-        } else {
-          modelEl.textContent = '无活跃会话';
-        }
-      }
-
-      if (count === 0) {
-        sessionsEl.innerHTML = '<div class="mc-empty">无活跃会话</div>';
-        previewsEl.innerHTML = '<div class="mc-empty">无活跃会话</div>';
-        return;
-      }
-
-      sessionsEl.innerHTML = `
-        <div class="mc-stat-row">
-          <span class="mc-stat-label">活跃会话数</span>
-          <span class="mc-stat-value">${count}</span>
-        </div>
-        <div class="mc-stat-row">
-          <span class="mc-stat-label">会话存储</span>
-          <span class="mc-stat-value mc-path">${data.path || 'unknown'}</span>
-        </div>
-      `;
-
-      previewsEl.innerHTML = sessions.map(s => {
-        const age = this.formatAge(s.ageMs);
-        const tokens = s.totalTokens || 0;
-        const ctxPct = s.contextTokens ? Math.round((tokens / s.contextTokens) * 100) : 0;
-        const title = s.origin?.label || s.key;
-        return `
-          <button class="session-preview-card" data-session-key="${this.escapeAttr(s.key)}">
-            <div class="session-preview-top">
-              <span class="session-preview-kind">${s.kind || 'unknown'}</span>
-              <span class="status-dot ${s.abortedLastRun ? 'warning' : 'online'}"></span>
-            </div>
-            <div class="session-preview-id">${s.sessionId ? s.sessionId.slice(0, 12) : 'no-id'}</div>
-            <div class="session-preview-title">${this.escapeHtml(title)}</div>
-            <div class="session-preview-meta">${s.model || 'unknown'}</div>
-            <div class="session-preview-tokens">${tokens.toLocaleString()} tokens <span class="ctx-pct">(${ctxPct}%)</span></div>
-            <div class="session-preview-age">${age}</div>
-          </button>
-        `;
-      }).join('');
-    } catch (e) {
-      if (modelEl) modelEl.textContent = '连接失败';
-      sessionsEl.innerHTML = '<div class="mc-error">连接失败</div>';
-      previewsEl.innerHTML = '<div class="mc-error">连接失败</div>';
+  renderClients(clients) {
+    const el = document.getElementById('clientsRow');
+    if (!el) return;
+    if (clients.length === 0) {
+      el.innerHTML = '<div class="mc-empty">暂无客户</div>';
+      return;
     }
+    el.innerHTML = clients.map(c => `
+      <div class="client-chip">
+        <span class="client-chip-name">${this.esc(c.name)}</span>
+        <span class="client-chip-type">${this.esc(c.serviceType)}</span>
+      </div>
+    `).join('');
   }
 
-  async loadCronHealth() {
-    const cronEl = document.getElementById('cronList');
-    if (!cronEl) return;
-
-    try {
-      const resp = await fetch('/api/cron');
-      const data = await resp.json();
-
-      if (data.error) {
-        if (data.error === 'pairing_required') {
-          cronEl.innerHTML = `
-            <div class="cron-auth-required">
-              <div class="cron-auth-title">需要 Gateway 配对</div>
-              <div class="cron-auth-desc">运行 <code>openclaw dashboard</code> 完成配对后即可使用 Cron 功能</div>
-            </div>
-          `;
-        } else {
-          cronEl.innerHTML = '<div class="mc-error">无法加载</div>';
-        }
+  renderStageLanesData(tasks) {
+    const stages = ['intake','scoping','execution','review','delivered','renewal'];
+    stages.forEach(stage => {
+      const lane = document.getElementById(`lane_${stage}`);
+      if (!lane) return;
+      const filtered = tasks.filter(t => t.stage === stage);
+      if (filtered.length === 0) {
+        lane.innerHTML = '<div class="lane-empty">无任务</div>';
         return;
       }
-
-      const jobs = data.jobs || [];
-      if (jobs.length === 0) {
-        cronEl.innerHTML = '<div class="mc-empty">无定时任务</div>';
-        return;
-      }
-
-      cronEl.innerHTML = jobs.map(job => {
-        const status = job.disabled ? 'offline' : job.lastError ? 'warning' : 'online';
-        const lastRun = job.lastRunAt ? this.formatAge(Date.now() - new Date(job.lastRunAt).getTime()) : '从未运行';
+      lane.innerHTML = filtered.map(t => {
+        const client = this.clientOpsData?.clients?.find(c => c.id === t.clientId);
+        const prio = t.priority || 'medium';
+        const hasBlocker = t.blockers && t.blockers.length > 0;
         return `
-          <div class="cron-job">
-            <div class="cron-job-info">
-              <span class="status-dot ${status}"></span>
-              <span class="cron-job-name">${job.name || '未命名'}</span>
+          <div class="task-card ${hasBlocker ? 'task-card-blocked' : ''}">
+            <div class="task-card-client">${this.esc(client?.name || t.clientId)}</div>
+            <div class="task-card-title">${this.esc(t.title)}</div>
+            <div class="task-card-meta">
+              <span class="task-priority-badge prio-${prio}">${prio}</span>
+              <span class="task-due-date ${this.isDueSoon(t.dueDate) ? 'due-soon' : ''}">${this.esc(t.dueDate || '--')}</span>
             </div>
-            <div class="cron-job-meta">
-              <span class="cron-job-schedule">${job.schedule || 'N/A'}</span>
-              <span class="cron-job-lastrun">${lastRun}</span>
-            </div>
+            ${hasBlocker ? `<div class="task-blocker-tag">阻塞</div>` : ''}
           </div>
         `;
       }).join('');
-    } catch (e) {
-      cronEl.innerHTML = '<div class="mc-error">连接失败</div>';
+    });
+  }
+
+  renderDeliverables(deliverables) {
+    const tbody = document.getElementById('deliverablesBody');
+    if (!tbody) return;
+    if (deliverables.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="mc-empty">无可交付成果</td></tr>';
+      return;
     }
+    const SL = {
+      not_started: '未开始', drafting: '起草中',
+      in_review: '审核中', approved: '已批准',
+      delivered: '已交付', blocked: '被阻塞'
+    };
+    tbody.innerHTML = deliverables.map(d => {
+      const client = this.clientOpsData?.clients?.find(c => c.id === d.clientId);
+      const isOverdue = d.slaDate && new Date(d.slaDate) < new Date();
+      const isNear = this.isDueSoon(d.slaDate);
+      return `
+        <tr>
+          <td><span class="deliv-client">${this.esc(client?.name || d.clientId)}</span></td>
+          <td><span class="deliv-name">${this.esc(d.name)}</span></td>
+          <td><span class="deliv-owner">${this.esc(d.ownerId)}</span></td>
+          <td><span class="deliv-sla ${isOverdue ? 'sla-overdue' : isNear ? 'sla-near' : ''}">${this.esc(d.slaDate || '--')}</span></td>
+          <td><span class="deliv-status status-${d.status}">${SL[d.status] || d.status}</span></td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  renderOpsStats(data) {
+    const tasks = data.tasks || [];
+    const clients = data.clients || [];
+    const now = new Date();
+    const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const ac = clients.filter(c => c.status === 'active').length;
+    const ds = tasks.filter(t => { if (!t.dueDate) return false; const d = new Date(t.dueDate); return d >= now && d <= weekEnd; }).length;
+    const hp = tasks.filter(t => t.priority === 'high' || t.priority === 'critical').length;
+    const bl = tasks.filter(t => t.blockers && t.blockers.length > 0).length;
+
+    const s = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    s('statActiveClients', ac);
+    s('statTasksDueSoon', ds);
+    s('statHighPriority', hp);
+    s('statBlocked', bl);
+  }
+
+  renderSeats(seats) {
+    const el = document.getElementById('seatGrid');
+    if (!el) return;
+    if (!seats || seats.length === 0) {
+      el.innerHTML = '<div class="mc-empty">暂无坐席数据</div>';
+      return;
+    }
+    el.innerHTML = seats.map(s => `
+      <div class="seat-card">
+        <div class="seat-card-top">
+          <span class="seat-name">${this.esc(s.name)}</span>
+          <span class="status-dot ${s.sessionState === 'online' ? 'online' : 'offline'}"></span>
+        </div>
+        <div class="seat-metrics">
+          <div class="seat-metric">
+            <span class="seat-metric-val">${s.activeTasks}</span>
+            <span class="seat-metric-key">活跃任务</span>
+          </div>
+          <div class="seat-metric ${s.blockedTasks > 0 ? 'warn' : ''}">
+            <span class="seat-metric-val">${s.blockedTasks}</span>
+            <span class="seat-metric-key">被阻塞</span>
+          </div>
+          <div class="seat-metric ${s.overdueDeliverables > 0 ? 'warn' : ''}">
+            <span class="seat-metric-val">${s.overdueDeliverables}</span>
+            <span class="seat-metric-key">SLA逾期</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async loadSessions() {
+    try {
+      const resp = await fetch('/api/sessions');
+      const data = await resp.json();
+      if (data.error) return;
+      this.sessionsCache = data.sessions || [];
+    } catch (e) { /* silent */ }
+  }
+
+  // ---- Session Modal ----
+
+  bindEvents() {
+    const closeBtn = this.view.querySelector('#sessionModalClose');
+    const backdrop = this.view.querySelector('#sessionModalBackdrop');
+    if (closeBtn) closeBtn.addEventListener('click', () => this.closeSessionModal());
+    if (backdrop) backdrop.addEventListener('click', e => { if (e.target === backdrop) this.closeSessionModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') this.closeSessionModal(); });
   }
 
   openSessionModal(session) {
@@ -280,30 +356,11 @@ class OpsModule {
     title.textContent = session.origin?.label || session.sessionId || '会话详情';
     content.innerHTML = `
       <div class="detail-grid">
-        <div class="detail-card">
-          <div class="detail-label">Session ID</div>
-          <div class="detail-value mono">${this.escapeHtml(session.sessionId || 'N/A')}</div>
-        </div>
-        <div class="detail-card">
-          <div class="detail-label">模型</div>
-          <div class="detail-value">${this.escapeHtml(`${session.modelProvider || 'unknown'}/${session.model || 'unknown'}`)}</div>
-        </div>
-        <div class="detail-card">
-          <div class="detail-label">活跃类型</div>
-          <div class="detail-value">${this.escapeHtml(session.kind || 'unknown')}</div>
-        </div>
-        <div class="detail-card">
-          <div class="detail-label">最后活跃</div>
-          <div class="detail-value">${this.escapeHtml(this.formatAge(session.ageMs))}</div>
-        </div>
-        <div class="detail-card wide">
-          <div class="detail-label">来源</div>
-          <div class="detail-value">${this.escapeHtml(session.origin?.label || session.key)}</div>
-        </div>
-        <div class="detail-card wide">
-          <div class="detail-label">上下文查看</div>
-          <div class="detail-value detail-paragraph">当前版本已打开 3/4 屏居中查看层。下一步会把完整消息上下文和滚动时间线接进来，现在先展示真实会话元数据与布局骨架。</div>
-        </div>
+        <div class="detail-card"><div class="detail-label">Session ID</div><div class="detail-value mono">${this.esc(session.sessionId || 'N/A')}</div></div>
+        <div class="detail-card"><div class="detail-label">模型</div><div class="detail-value">${this.esc(`${session.modelProvider || '?'}/${session.model || '?'}`)}</div></div>
+        <div class="detail-card"><div class="detail-label">活跃类型</div><div class="detail-value">${this.esc(session.kind || 'unknown')}</div></div>
+        <div class="detail-card"><div class="detail-label">最后活跃</div><div class="detail-value">${this.esc(this.formatAge(session.ageMs))}</div></div>
+        <div class="detail-card wide"><div class="detail-label">来源</div><div class="detail-value">${this.esc(session.origin?.label || session.key)}</div></div>
       </div>
     `;
     backdrop.classList.add('active');
@@ -312,32 +369,30 @@ class OpsModule {
 
   closeSessionModal() {
     if (!this.view) return;
-    const backdrop = this.view.querySelector('#sessionModalBackdrop');
-    if (backdrop) backdrop.classList.remove('active');
+    const b = this.view.querySelector('#sessionModalBackdrop');
+    if (b) b.classList.remove('active');
     document.body.style.overflow = '';
   }
+
+  // ---- Utils ----
 
   formatAge(ms) {
     if (!ms) return 'unknown';
     const sec = Math.floor(ms / 1000);
-    if (sec < 60) return `${sec}s ago`;
+    if (sec < 60) return `${sec}s`;
     const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m ago`;
-    const hr = Math.floor(min / 60);
-    return `${hr}h ago`;
+    if (min < 60) return `${min}m`;
+    return `${Math.floor(min / 60)}h`;
   }
 
-  escapeHtml(value) {
-    return String(value)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
+  isDueSoon(dateStr) {
+    if (!dateStr) return false;
+    const diff = new Date(dateStr) - new Date();
+    return diff > 0 && diff < 3 * 24 * 60 * 60 * 1000;
   }
 
-  escapeAttr(value) {
-    return this.escapeHtml(value);
+  esc(v) {
+    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 }
 

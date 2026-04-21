@@ -17,17 +17,24 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
-// ---- OpenClaw Real Data APIs ----
+// ---- Client Ops Data (local JSON) ----
+const CLIENT_OPS_PATH = path.join(STATIC_DIR, 'data', 'client-ops-sample.json');
 
-// Fast: read sessions file directly (ms vs 8s via CLI)
+function readClientOpsData() {
+  try {
+    return JSON.parse(fs.readFileSync(CLIENT_OPS_PATH, 'utf8'));
+  } catch (e) {
+    return { error: 'read_error', detail: e.message };
+  }
+}
+
+// ---- OpenClaw Real Data APIs ----
 function getSessionsFromFile() {
   try {
     const sessionsPath = '/Users/ze/.openclaw/agents/main/sessions/sessions.json';
     const raw = fs.readFileSync(sessionsPath, 'utf8');
     const allSessions = JSON.parse(raw);
-
-    // Summarize - extract only what we need for the dashboard
-    const summarized = {
+    return {
       path: sessionsPath,
       count: Object.keys(allSessions).length,
       sessions: Object.entries(allSessions).map(([key, s]) => ({
@@ -49,62 +56,44 @@ function getSessionsFromFile() {
         } : null
       }))
     };
-    return summarized;
   } catch (e) {
     return { error: 'read_error', detail: e.message };
   }
 }
 
-// Fast: health endpoint (no gateway pairing needed)
 function getHealth() {
   return new Promise((resolve) => {
-    exec('openclaw health --json', { timeout: 8000 }, (err, stdout, stderr) => {
-      if (err) {
-        resolve({ error: 'health_error', detail: err.message.slice(0, 200) });
-      } else {
-        try {
-          resolve(JSON.parse(stdout));
-        } catch (e) {
-          resolve({ error: 'parse_error', detail: stdout.slice(0, 200) });
-        }
+    exec('openclaw health --json', { timeout: 8000 }, (err, stdout) => {
+      if (err) resolve({ error: 'health_error', detail: err.message.slice(0, 200) });
+      else {
+        try { resolve(JSON.parse(stdout)); }
+        catch (e) { resolve({ error: 'parse_error', detail: stdout.slice(0, 200) }); }
       }
     });
   });
 }
 
-// Requires gateway pairing
 function getCronList() {
   return new Promise((resolve) => {
-    exec('openclaw cron list --json', { timeout: 8000 }, (err, stdout, stderr) => {
+    exec('openclaw cron list --json', { timeout: 8000 }, (err, stdout) => {
       if (err) {
-        if (err.message.includes('pairing required')) {
-          resolve({ error: 'pairing_required' });
-        } else {
-          resolve({ error: 'exec_error', detail: err.message.slice(0, 200) });
-        }
+        if (err.message.includes('pairing required')) resolve({ error: 'pairing_required' });
+        else resolve({ error: 'exec_error', detail: err.message.slice(0, 200) });
       } else {
-        try {
-          resolve(JSON.parse(stdout));
-        } catch (e) {
-          resolve({ error: 'parse_error', detail: stdout.slice(0, 200) });
-        }
+        try { resolve(JSON.parse(stdout)); }
+        catch (e) { resolve({ error: 'parse_error', detail: stdout.slice(0, 200) }); }
       }
     });
   });
 }
 
 // ---- HTTP Server ----
-
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   const sendJson = (data, status = 200) => {
     res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -112,19 +101,19 @@ const server = http.createServer((req, res) => {
   };
 
   if (req.url === '/api/health') {
-    getHealth().then(data => sendJson(data)).catch(e => sendJson({ error: 'server_error' }, 500));
+    getHealth().then(data => sendJson(data)).catch(() => sendJson({ error: 'server_error' }, 500));
     return;
   }
-
   if (req.url === '/api/sessions') {
-    // Use fast file read instead of slow CLI
-    const data = getSessionsFromFile();
-    sendJson(data);
+    sendJson(getSessionsFromFile());
     return;
   }
-
   if (req.url === '/api/cron') {
-    getCronList().then(data => sendJson(data)).catch(e => sendJson({ error: 'server_error' }, 500));
+    getCronList().then(data => sendJson(data)).catch(() => sendJson({ error: 'server_error' }, 500));
+    return;
+  }
+  if (req.url === '/api/client-ops') {
+    sendJson(readClientOpsData());
     return;
   }
 
@@ -132,7 +121,6 @@ const server = http.createServer((req, res) => {
   let filePath = path.join(STATIC_DIR, req.url === '/' ? 'index.html' : req.url);
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-
   fs.readFile(filePath, (err, content) => {
     if (err) {
       res.writeHead(err.code === 'ENOENT' ? 404 : 500);
