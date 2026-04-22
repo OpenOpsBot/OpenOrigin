@@ -630,28 +630,61 @@ class OpsModule {
     const isActive = session.ageMs < 5 * 60 * 1000;
     const tokenPct = session.contextTokens ? Math.round((session.totalTokens || 0) / session.contextTokens * 100) : null;
     const sessionTitle = session.origin?.label || session.sessionId || '会话详情';
+    const stateText = session.abortedLastRun ? '失败' : isActive ? '活跃' : '已完成';
     document.getElementById('sessionModalTitle').textContent = sessionTitle;
     document.getElementById('sessionHeroTitle').textContent = sessionTitle;
-    document.getElementById('sessionHeroState').textContent = session.abortedLastRun ? '失败' : isActive ? '活跃' : '已完成';
+    document.getElementById('sessionHeroEyebrow').textContent = `${this.esc(session.origin?.provider || 'unknown')} · ${this.esc(session.origin?.chatType || session.kind || '--')}`;
+    document.getElementById('sessionHeroState').textContent = stateText;
     document.getElementById('sessionHeroState').className = `session-state-badge state-${session.abortedLastRun ? 'danger' : isActive ? 'ok' : 'dim'}`;
+    document.getElementById('sessionHeroIcon').className = `session-hero-icon ${session.abortedLastRun ? 'danger' : isActive ? 'ok' : 'dim'}`;
     const metaHtml = `
-      <div class="session-detail-meta-chip"><span>会话ID</span><strong>${this.esc(session.sessionId || '--')}</strong></div>
-      <div class="session-detail-meta-chip"><span>渠道</span><strong>${this.esc(session.origin?.provider || '--')}</strong></div>
-      <div class="session-detail-meta-chip"><span>类型</span><strong>${this.esc(session.origin?.chatType || session.kind || '--')}</strong></div>
-      <div class="session-detail-meta-chip"><span>模型</span><strong>${this.esc(session.model || '--')}</strong></div>
-      ${tokenPct !== null ? `<div class="session-detail-meta-chip"><span>Token</span><strong>${this.formatTokens(session.totalTokens || 0)} / ${this.formatTokens(session.contextTokens)} (${tokenPct}%)</strong></div>` : ''}
+      <div class="session-detail-meta-chip emphasis"><span>Token 使用</span><strong>${tokenPct !== null ? `${this.formatTokens(session.totalTokens || 0)} / ${this.formatTokens(session.contextTokens)} (${tokenPct}%)` : '--'}</strong></div>
       <div class="session-detail-meta-chip"><span>最后活跃</span><strong>${this.esc(this.formatAge(session.ageMs))}</strong></div>
+      <div class="session-detail-meta-chip"><span>最后更新</span><strong>${session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN') : '--'}</strong></div>
+      <div class="session-detail-meta-chip"><span>运行状态</span><strong>${stateText}</strong></div>
     `;
     document.getElementById('sessionHeroMeta').innerHTML = metaHtml;
-    const infoHtml = `
-      <div class="detail-row"><span class="detail-label">Session Key</span><span class="detail-value">${this.esc(session.key || '--')}</span></div>
-      <div class="detail-row"><span class="detail-label">Surface</span><span class="detail-value">${this.esc(session.origin?.surface || '--')}</span></div>
-      <div class="detail-row"><span class="detail-label">Provider</span><span class="detail-value">${this.esc(session.modelProvider || '--')}</span></div>
-      <div class="detail-row"><span class="detail-label">最后更新</span><span class="detail-value">${session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN') : '--'}</span></div>
-      <div class="detail-row"><span class="detail-label">最后活跃</span><span class="detail-value">${this.formatAge(session.ageMs)}</span></div>
-      <div class="detail-row"><span class="detail-label">执行状态</span><span class="detail-value">${session.abortedLastRun ? '失败' : '正常'}</span></div>
+    const overviewHtml = `
+      <div class="detail-card">
+        <div class="detail-label">会话 ID</div>
+        <div class="detail-value mono">${this.esc(session.sessionId || '--')}</div>
+      </div>
+      <div class="detail-card">
+        <div class="detail-label">Session Key</div>
+        <div class="detail-value mono">${this.esc(session.key || '--')}</div>
+      </div>
+      <div class="detail-card compact">
+        <div class="detail-label">渠道</div>
+        <div class="detail-value">${this.esc(session.origin?.provider || '--')}</div>
+      </div>
+      <div class="detail-card compact">
+        <div class="detail-label">Surface</div>
+        <div class="detail-value">${this.esc(session.origin?.surface || '--')}</div>
+      </div>
+      <div class="detail-card compact">
+        <div class="detail-label">类型</div>
+        <div class="detail-value">${this.esc(session.origin?.chatType || session.kind || '--')}</div>
+      </div>
+      <div class="detail-card compact">
+        <div class="detail-label">模型</div>
+        <div class="detail-value">${this.esc(session.model || '--')}</div>
+        <div class="detail-subvalue">${this.esc(session.modelProvider || '--')}</div>
+      </div>
     `;
-    document.getElementById('sessionDetailInfo').innerHTML = infoHtml;
+    const statusHtml = `
+      <div class="detail-card compact ${session.abortedLastRun ? 'danger' : isActive ? 'ok' : ''}">
+        <div class="detail-label">执行状态</div>
+        <div class="detail-value">${stateText}</div>
+        <div class="detail-subvalue">最后活跃 ${this.formatAge(session.ageMs)}</div>
+      </div>
+      <div class="detail-card compact ${tokenPct !== null && tokenPct >= 80 ? 'danger' : tokenPct !== null && tokenPct >= 50 ? 'warning' : 'ok'}">
+        <div class="detail-label">Token 占用</div>
+        <div class="detail-value">${tokenPct !== null ? `${tokenPct}%` : '--'}</div>
+        <div class="detail-subvalue">${tokenPct !== null ? `${this.formatTokens(session.totalTokens || 0)} / ${this.formatTokens(session.contextTokens)}` : '暂无数据'}</div>
+      </div>
+    `;
+    document.getElementById('sessionOverviewGrid').innerHTML = overviewHtml;
+    document.getElementById('sessionStatusGrid').innerHTML = statusHtml;
     modal.classList.add('active');
   }
 
@@ -662,22 +695,32 @@ class OpsModule {
   renderSessionModal() {
     return `
       <div class="overlay-backdrop active" id="sessionModal">
-        <div class="session-modal">
-          <div class="modal-header">
+        <div class="session-modal session-modal-refined">
+          <div class="modal-header refined">
             <div class="modal-title"><i data-lucide="messages-square"></i><span id="sessionModalTitle">会话详情</span></div>
             <button class="btn btn-secondary" id="sessionModalClose">关闭</button>
           </div>
           <div class="session-detail-shell">
-            <div class="session-detail-hero">
-              <div class="session-hero-top">
-                <div class="session-hero-title" id="sessionHeroTitle">--</div>
+            <div class="session-detail-hero refined">
+              <div class="session-hero-top refined">
+                <div class="session-hero-title-wrap">
+                  <div class="session-hero-icon" id="sessionHeroIcon"><i data-lucide="messages-square"></i></div>
+                  <div>
+                    <div class="session-hero-eyebrow" id="sessionHeroEyebrow">--</div>
+                    <div class="session-hero-title" id="sessionHeroTitle">--</div>
+                  </div>
+                </div>
                 <span class="session-state-badge" id="sessionHeroState">--</span>
               </div>
               <div class="session-hero-meta" id="sessionHeroMeta"></div>
             </div>
-            <div class="session-detail-card">
-              <div class="detail-section-title">会话信息</div>
-              <div class="detail-grid" id="sessionDetailInfo"></div>
+            <div class="session-detail-section">
+              <div class="detail-section-title">会话概览</div>
+              <div class="session-detail-grid session-overview-grid" id="sessionOverviewGrid"></div>
+            </div>
+            <div class="session-detail-section">
+              <div class="detail-section-title">状态与负载</div>
+              <div class="session-detail-grid session-status-grid" id="sessionStatusGrid"></div>
             </div>
           </div>
         </div>
