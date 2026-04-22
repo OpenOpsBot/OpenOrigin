@@ -38,8 +38,6 @@ class OpsModule {
     this.view.className = 'module-view module-ops active';
     this.view.id = 'opsView';
     this.view.innerHTML = `
-      <div class="section-title">运营模块</div>
-
       <div class="module-page ${this.currentPage === 'dashboard' ? 'active' : ''}" data-page="dashboard">
         <div class="dashboard ops-dashboard">
           ${this.renderClientOpsHeader()}
@@ -51,20 +49,32 @@ class OpsModule {
       </div>
 
       <div class="module-page ${this.currentPage === 'tasks' ? 'active' : ''}" data-page="tasks">
-        <div class="dashboard ops-dashboard ops-tasks-dashboard">
-          <div class="panel stage-lanes-panel ops-page-full">
+        <div class="dashboard single-page-dashboard ops-tasks-dashboard">
+          <div class="panel">
             <div class="panel-header">
               <i data-lucide="clipboard-check"></i>
               任务管理
             </div>
             <div class="panel-body">
-              <div class="module-empty-copy">这里集中展示运营任务流转、优先级和阻塞项。当前已接入下方任务流程看板与交付追踪。</div>
-              <div class="tasks-page-stack">
-                ${this.renderStageLanes()}
-                ${this.renderDeliverablesTable()}
-              </div>
+              <div class="module-empty-copy">这里集中展示运营任务流转、优先级和阻塞项。</div>
             </div>
           </div>
+          ${this.renderStageLanes()}
+        </div>
+      </div>
+
+      <div class="module-page ${this.currentPage === 'deliverables' ? 'active' : ''}" data-page="deliverables">
+        <div class="dashboard single-page-dashboard ops-deliverables-dashboard">
+          <div class="panel">
+            <div class="panel-header">
+              <i data-lucide="file-check"></i>
+              交付追踪
+            </div>
+            <div class="panel-body">
+              <div class="module-empty-copy">这里集中查看可交付成果、SLA 状态和负责人。</div>
+            </div>
+          </div>
+          ${this.renderDeliverablesTable()}
         </div>
       </div>
 
@@ -240,18 +250,19 @@ class OpsModule {
   }
 
   renderClients(clients) {
-    const el = document.getElementById('clientsRow');
-    if (!el) return;
-    if (clients.length === 0) {
-      el.innerHTML = '<div class="mc-empty">暂无客户</div>';
-      return;
-    }
-    el.innerHTML = clients.map(c => `
-      <div class="client-chip">
-        <span class="client-chip-name">${this.esc(c.name)}</span>
-        <span class="client-chip-type">${this.esc(c.serviceType)}</span>
-      </div>
-    `).join('');
+    const nodes = this.view?.querySelectorAll('#clientsRow') || [];
+    nodes.forEach(el => {
+      if (clients.length === 0) {
+        el.innerHTML = '<div class="mc-empty">暂无客户</div>';
+        return;
+      }
+      el.innerHTML = clients.map(c => `
+        <div class="client-chip">
+          <span class="client-chip-name">${this.esc(c.name)}</span>
+          <span class="client-chip-type">${this.esc(c.serviceType)}</span>
+        </div>
+      `).join('');
+    });
   }
 
   renderStageLanesData(tasks) {
@@ -339,34 +350,35 @@ class OpsModule {
   }
 
   renderSeats(seats) {
-    const el = document.getElementById('seatGrid');
-    if (!el) return;
-    if (!seats || seats.length === 0) {
-      el.innerHTML = '<div class="mc-empty">暂无坐席数据</div>';
-      return;
-    }
-    el.innerHTML = seats.map(s => `
-      <div class="seat-card">
-        <div class="seat-card-top">
-          <span class="seat-name">${this.esc(s.name)}</span>
-          <span class="status-dot ${s.sessionState === 'online' ? 'online' : 'offline'}"></span>
+    const nodes = this.view?.querySelectorAll('#seatGrid') || [];
+    nodes.forEach(el => {
+      if (!seats || seats.length === 0) {
+        el.innerHTML = '<div class="mc-empty">暂无坐席数据</div>';
+        return;
+      }
+      el.innerHTML = seats.map(s => `
+        <div class="seat-card">
+          <div class="seat-card-top">
+            <span class="seat-name">${this.esc(s.name)}</span>
+            <span class="status-dot ${s.sessionState === 'online' ? 'online' : 'offline'}"></span>
+          </div>
+          <div class="seat-metrics">
+            <div class="seat-metric">
+              <span class="seat-metric-val">${s.activeTasks}</span>
+              <span class="seat-metric-key">活跃任务</span>
+            </div>
+            <div class="seat-metric ${s.blockedTasks > 0 ? 'warn' : ''}">
+              <span class="seat-metric-val">${s.blockedTasks}</span>
+              <span class="seat-metric-key">被阻塞</span>
+            </div>
+            <div class="seat-metric ${s.overdueDeliverables > 0 ? 'warn' : ''}">
+              <span class="seat-metric-val">${s.overdueDeliverables}</span>
+              <span class="seat-metric-key">SLA逾期</span>
+            </div>
+          </div>
         </div>
-        <div class="seat-metrics">
-          <div class="seat-metric">
-            <span class="seat-metric-val">${s.activeTasks}</span>
-            <span class="seat-metric-key">活跃任务</span>
-          </div>
-          <div class="seat-metric ${s.blockedTasks > 0 ? 'warn' : ''}">
-            <span class="seat-metric-val">${s.blockedTasks}</span>
-            <span class="seat-metric-key">被阻塞</span>
-          </div>
-          <div class="seat-metric ${s.overdueDeliverables > 0 ? 'warn' : ''}">
-            <span class="seat-metric-val">${s.overdueDeliverables}</span>
-            <span class="seat-metric-key">SLA逾期</span>
-          </div>
-        </div>
-      </div>
-    `).join('');
+      `).join('');
+    });
   }
 
   async loadSessions() {

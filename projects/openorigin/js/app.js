@@ -7,7 +7,8 @@ class App {
     this.modulePages = {
       ops: [
         { key: 'dashboard', label: '仪表盘' },
-        { key: 'tasks', label: '任务管理' }
+        { key: 'tasks', label: '任务管理' },
+        { key: 'deliverables', label: '交付追踪' }
       ],
       brain: [
         { key: 'dashboard', label: '仪表盘' },
@@ -66,11 +67,16 @@ class App {
 
   switchPage(pageKey) {
     if (!this.currentModule || !this.modules[this.currentModule]) return;
-    this.currentPage = pageKey;
-    this.modules[this.currentModule].show(pageKey);
+    const pages = this.getPages(this.currentModule);
+    const targetPage = pages.some(page => page.key === pageKey)
+      ? pageKey
+      : this.getDefaultPage(this.currentModule);
+
+    this.currentPage = targetPage;
+    this.modules[this.currentModule].show(targetPage);
 
     if (this.tabManager) {
-      this.tabManager.setPageActive(pageKey);
+      this.tabManager.setPageActive(targetPage);
     }
   }
 }
