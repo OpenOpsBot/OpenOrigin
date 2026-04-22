@@ -319,6 +319,16 @@ class OpsModule {
     }
   }
 
+  async loadModels() {
+    try {
+      const resp = await fetch('/api/models');
+      const data = await resp.json();
+      this.renderModels(data);
+    } catch (e) {
+      this.renderModels({ error: 'load_error' });
+    }
+  }
+
   // ---- Renderers ----
 
   renderAgents(agents) {

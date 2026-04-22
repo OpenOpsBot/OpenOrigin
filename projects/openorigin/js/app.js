@@ -7,9 +7,8 @@ class App {
     this.storageKey = 'openorigin:nav-state';
     this.modulePages = {
       ops: [
-        { key: 'dashboard', label: '仪表盘' },
-        { key: 'tasks', label: '指挥台' },
-        { key: 'deliverables', label: '交付追踪' }
+        { key: 'dashboard', label: '运营面板' },
+        { key: 'tasks', label: '指挥台' }
       ],
       brain: [
         { key: 'dashboard', label: '仪表盘' },
