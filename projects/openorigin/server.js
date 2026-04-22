@@ -55,7 +55,8 @@ function getSessionsFromFile() {
           surface: s.origin.surface,
           chatType: s.origin.chatType,
           label: s.origin.label
-        } : null
+        } : null,
+        sessionFile: s.sessionFile || null
       }))
     };
   } catch (e) {
@@ -167,6 +168,36 @@ function getConfiguredModels() {
   }
 }
 
+function readSessionHistory(sessionFile) {
+  try {
+    if (!sessionFile || !fs.existsSync(sessionFile)) {
+      return { error: 'not_found', detail: 'session file not found' };
+    }
+    const raw = fs.readFileSync(sessionFile, 'utf8');
+    const lines = raw.trim().split('\n').filter(l => l.trim());
+    const messages = [];
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        if (entry.type === 'message' && entry.message) {
+          const msg = entry.message;
+          messages.push({
+            id: entry.id,
+            timestamp: entry.timestamp,
+            role: msg.role || 'unknown',
+            content: Array.isArray(msg.content)
+              ? msg.content.map(c => c.text || c.image_url || c.type).filter(Boolean).join(' ')
+              : (msg.content || '')
+          });
+        }
+      } catch (e) {}
+    }
+    return { history: messages, total: messages.length };
+  } catch (e) {
+    return { error: 'read_error', detail: e.message };
+  }
+}
+
 function getCronList() {
   return new Promise((resolve) => {
     exec('openclaw cron list --json', { timeout: 8000 }, (err, stdout, stderr) => {
@@ -243,6 +274,16 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/api/models') {
     sendJson(getConfiguredModels());
+    return;
+  }
+  if (req.url.startsWith('/api/session-history?')) {
+    const key = new URL(req.url, 'http://localhost').searchParams.get('key');
+    if (!key) { sendJson({ error: 'missing_key' }, 400); return; }
+    const sessions = getSessionsFromFile();
+    const session = sessions.sessions?.find(s => s.key === key);
+    if (!session) { sendJson({ error: 'session_not_found' }, 404); return; }
+    const historyData = readSessionHistory(session.sessionFile);
+    sendJson(historyData);
     return;
   }
 

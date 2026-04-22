@@ -685,6 +685,38 @@ class OpsModule {
     `;
     document.getElementById('sessionOverviewGrid').innerHTML = overviewHtml;
     document.getElementById('sessionStatusGrid').innerHTML = statusHtml;
+    this.loadSessionHistory(session.key, session.sessionFile);
+    if (window.lucide) window.lucide.createIcons();
+  }
+
+  async loadSessionHistory(key, sessionFile) {
+    const container = document.getElementById('sessionHistoryList');
+    if (!container) return;
+    container.innerHTML = '<div class="mc-loading">加载中...</div>';
+    try {
+      const resp = await fetch(`/api/session-history?key=${encodeURIComponent(key)}`);
+      const data = await resp.json();
+      if (data.error || !data.history) {
+        container.innerHTML = '<div class="mc-empty">暂无历史记录</div>';
+        return;
+      }
+      if (!data.history.length) {
+        container.innerHTML = '<div class="mc-empty">暂无历史记录</div>';
+        return;
+      }
+      const reverse = [...data.history].reverse().slice(0, 30);
+      container.innerHTML = reverse.map(msg => {
+        const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '--';
+        const roleLabel = { user: '用户', assistant: '小猿', system: '系统', unknown: '未知' }[msg.role] || msg.role;
+        const roleClass = { user: 'role-user', assistant: 'role-assistant', system: 'role-system', unknown: 'role-unknown' }[msg.role] || 'role-unknown';
+        const content = this.esc((msg.content || '').slice(0, 200));
+        const truncated = content.length >= 200 ? content + '…' : content;
+        return `<div class="history-item ${roleClass}"><div class="history-item-header"><span class="history-role">${roleLabel}</span><span class="history-time">${ts}</span></div><div class="history-content">${truncated}</div></div>`;
+      }).join('');
+    } catch (e) {
+      container.innerHTML = '<div class="mc-empty">加载失败</div>';
+    }
+  }
     modal.classList.add('active');
   }
 
@@ -721,6 +753,12 @@ class OpsModule {
             <div class="session-detail-section">
               <div class="detail-section-title">状态与负载</div>
               <div class="session-detail-grid session-status-grid" id="sessionStatusGrid"></div>
+            </div>
+            <div class="session-detail-section">
+              <div class="detail-section-title">最近消息</div>
+              <div class="session-history-list" id="sessionHistoryList">
+                <div class="mc-loading">加载中...</div>
+              </div>
             </div>
           </div>
         </div>
