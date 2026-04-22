@@ -340,7 +340,54 @@
 .mission-control-dashboard {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
+}
+
+.ops-tasks-dashboard {
+  gap: 0;
+}
+
+.ops-tasks-dashboard > .panel {
+  margin: 0;
+}
+
+.ops-tasks-dashboard .panel-body {
+  padding-top: 14px;
+}
+
+.mission-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.mission-panels .mission-panel {
+  margin: 0;
+}
+
+.mission-panels .mission-panel + .mission-panel {
+  margin-top: 0;
+}
+
+.mission-panels .mission-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mission-panels .panel-body {
+  padding-top: 12px;
+}
+
+.mission-panels [data-panel='models'] {
+  order: 1;
+}
+
+.mission-panels [data-panel='sessions'] {
+  order: 2;
+}
+
+.mission-panels [data-panel='cron'] {
+  order: 3;
 }
 
 .mission-hero-panel {

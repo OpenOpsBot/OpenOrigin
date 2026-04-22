@@ -98,16 +98,6 @@ class OpsModule {
               </div>
 
               <div class="mission-panels">
-                <div class="panel mission-panel" data-panel="sessions">
-                  <div class="panel-header">
-                    <i data-lucide="scan-search"></i>
-                    活跃会话
-                    <span class="panel-count" id="sessionsPanelCount">--</span>
-                  </div>
-                  <div class="panel-body">
-                    <div class="mission-grid" id="activeSessionsList"></div>
-                  </div>
-                </div>
                 <div class="panel mission-panel" data-panel="models">
                   <div class="panel-header">
                     <i data-lucide="cpu"></i>
@@ -116,6 +106,16 @@ class OpsModule {
                   </div>
                   <div class="panel-body">
                     <div class="mission-grid" id="modelsList"></div>
+                  </div>
+                </div>
+                <div class="panel mission-panel" data-panel="sessions">
+                  <div class="panel-header">
+                    <i data-lucide="scan-search"></i>
+                    活跃会话
+                    <span class="panel-count" id="sessionsPanelCount">--</span>
+                  </div>
+                  <div class="panel-body">
+                    <div class="mission-grid" id="activeSessionsList"></div>
                   </div>
                 </div>
                 <div class="panel mission-panel" data-panel="cron">
