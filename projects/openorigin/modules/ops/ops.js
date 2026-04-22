@@ -5,6 +5,7 @@ class OpsModule {
     this.sessionsCache = [];
     this.healthData = null;
     this.cronData = null;
+    this.modelsData = null;
     this.currentPage = 'dashboard';
   }
 
@@ -41,7 +42,9 @@ class OpsModule {
       this.loadHealth(),
       this.loadModels(),
       this.loadCron()
-    ]);
+    ]).then(() => {
+      if (window.lucide) window.lucide.createIcons();
+    }).catch(() => {});
   }
 
   render() {
@@ -139,9 +142,9 @@ class OpsModule {
       });
     });
 
-    document.body.appendChild(this.view);
+    document.getElementById('mainContent').appendChild(this.view);
     this.refreshAll();
-    lucide.createIcons();
+    if (window.lucide) window.lucide.createIcons();
   }
 
   // ---- Dashboard panels ----
@@ -417,7 +420,7 @@ class OpsModule {
     const sessions = this.sessionsCache;
     const jobs = this.cronData?.jobs || [];
     const activeSessions = sessions.filter(s => s.ageMs < 5 * 60 * 1000).length;
-    const cronFailed = jobs.filter(j => j.lastRun?.status === 'failed').length;
+    const cronFailed = jobs.filter(j => ['failed', 'error'].includes(j.lastRun?.status)).length;
     const cronEnabled = jobs.filter(j => j.enabled).length;
 
     const setText = (selector, val) => {
@@ -626,7 +629,9 @@ class OpsModule {
     }
     const isActive = session.ageMs < 5 * 60 * 1000;
     const tokenPct = session.contextTokens ? Math.round((session.totalTokens || 0) / session.contextTokens * 100) : null;
-    document.getElementById('sessionModalTitle').textContent = session.origin?.label || session.sessionId || '会话详情';
+    const sessionTitle = session.origin?.label || session.sessionId || '会话详情';
+    document.getElementById('sessionModalTitle').textContent = sessionTitle;
+    document.getElementById('sessionHeroTitle').textContent = sessionTitle;
     document.getElementById('sessionHeroState').textContent = session.abortedLastRun ? '失败' : isActive ? '活跃' : '已完成';
     document.getElementById('sessionHeroState').className = `session-state-badge state-${session.abortedLastRun ? 'danger' : isActive ? 'ok' : 'dim'}`;
     const metaHtml = `
@@ -656,8 +661,8 @@ class OpsModule {
 
   renderSessionModal() {
     return `
-      <div class="overlay-backdrop" id="sessionModalBackdrop">
-        <div class="session-modal" id="sessionModal">
+      <div class="overlay-backdrop active" id="sessionModal">
+        <div class="session-modal">
           <div class="modal-header">
             <div class="modal-title"><i data-lucide="messages-square"></i><span id="sessionModalTitle">会话详情</span></div>
             <button class="btn btn-secondary" id="sessionModalClose">关闭</button>
