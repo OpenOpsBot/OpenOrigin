@@ -49,7 +49,11 @@ class App {
       if (m && m.hide) m.hide();
     });
 
-    const targetPage = pageKey || (this.currentModule === moduleName ? this.currentPage : this.getDefaultPage(moduleName));
+    const pages = this.getPages(moduleName);
+    const preferredPage = pageKey || (this.currentModule === moduleName ? this.currentPage : this.getDefaultPage(moduleName));
+    const targetPage = pages.some(page => page.key === preferredPage)
+      ? preferredPage
+      : this.getDefaultPage(moduleName);
 
     this.modules[moduleName].show(targetPage);
     this.currentModule = moduleName;
