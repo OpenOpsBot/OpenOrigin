@@ -63,10 +63,8 @@ class OpsModule {
             </div>
           </div>
           ${this.renderActiveSessionsPanel()}
-          <div class="mission-bottom-grid">
-            ${this.renderModelsPanel()}
-            ${this.renderCronPanel()}
-          </div>
+          ${this.renderModelsPanel()}
+          ${this.renderCronPanel()}
         </div>
       </div>
 
@@ -452,6 +450,11 @@ class OpsModule {
           <div class="mission-summary-value" id="summaryCronCount">--</div>
           <div class="mission-summary-meta" id="summaryCronMeta">加载中...</div>
         </div>
+        <div class="mission-summary-card">
+          <div class="mission-summary-label">异常提醒</div>
+          <div class="mission-summary-value" id="summaryAlertsCount">--</div>
+          <div class="mission-summary-meta" id="summaryAlertsMeta">加载中...</div>
+        </div>
       </div>
     `;
   }
@@ -464,7 +467,7 @@ class OpsModule {
           模型
         </div>
         <div class="panel-body">
-          <div class="mission-list mission-list-compact" id="modelsList">
+          <div class="mission-grid" id="modelsList">
             <div class="mc-loading">加载中...</div>
           </div>
         </div>
@@ -480,7 +483,7 @@ class OpsModule {
           活跃会话
         </div>
         <div class="panel-body">
-          <div class="mission-list" id="activeSessionsList">
+          <div class="mission-grid" id="activeSessionsList">
             <div class="mc-loading">加载中...</div>
           </div>
         </div>
@@ -496,7 +499,7 @@ class OpsModule {
           定时任务
         </div>
         <div class="panel-body">
-          <div class="mission-list mission-list-compact" id="cronJobsList">
+          <div class="mission-grid" id="cronJobsList">
             <div class="mc-loading">加载中...</div>
           </div>
         </div>
@@ -509,13 +512,14 @@ class OpsModule {
     const models = this.extractModels(data);
     this.setText('#summaryModelsCount', models.length);
     this.setText('#summaryModelsMeta', models[0] ? `${models[0].name} · ${models[0].statusText}` : (data.error ? '暂不可用' : '暂无模型信息'));
+    this.updateAlertSummary();
     nodes.forEach(el => {
       if (!models.length) {
         el.innerHTML = `<div class="mc-empty">${data.error ? '模型数据暂不可用' : '暂无模型信息'}</div>`;
         return;
       }
       el.innerHTML = models.map(model => `
-        <div class="mission-item">
+        <div class="mission-tile">
           <div class="mission-item-top">
             <span class="mission-item-title">${this.esc(model.name)}</span>
             <span class="feature-status ${model.statusClass}">${this.esc(model.statusText)}</span>
@@ -557,18 +561,20 @@ class OpsModule {
     const nodes = this.view?.querySelectorAll('#activeSessionsList') || [];
     this.setText('#summarySessionsCount', sessions.length);
     this.setText('#summarySessionsMeta', sessions[0] ? `${sessions[0].origin?.label || sessions[0].sessionId || '未命名会话'} · ${this.formatAge(sessions[0].ageMs)}` : '暂无活跃会话');
+    this.updateAlertSummary();
     nodes.forEach(el => {
       if (!sessions.length) {
         el.innerHTML = '<div class="mc-empty">暂无活跃会话</div>';
         return;
       }
       el.innerHTML = sessions.slice(0, 8).map(session => `
-        <div class="mission-item mission-item-clickable" data-session-key="${this.esc(session.key || '')}">
+        <div class="mission-tile mission-item-clickable" data-session-key="${this.esc(session.key || '')}">
           <div class="mission-item-top">
             <span class="mission-item-title">${this.esc(session.origin?.label || session.sessionId || '未命名会话')}</span>
             <span class="mission-item-badge">${this.esc(session.kind || 'unknown')}</span>
           </div>
-          <div class="mission-item-meta">${this.esc(`${session.modelProvider || '?'} / ${session.model || '?'} · 最近活跃 ${this.formatAge(session.ageMs)}`)}</div>
+          <div class="mission-item-meta">${this.esc(`${session.modelProvider || '?'} / ${session.model || '?'}`)}</div>
+          <div class="mission-item-submeta">最近活跃 ${this.esc(this.formatAge(session.ageMs))}</div>
         </div>
       `).join('');
     });
@@ -583,6 +589,7 @@ class OpsModule {
       : jobs[0]
         ? `${jobs[0].name || jobs[0].id || '未命名任务'} · ${jobs[0].enabled === false ? '停用' : '启用'}`
         : (data.error ? '暂不可用' : '暂无定时任务'));
+    this.updateAlertSummary();
     nodes.forEach(el => {
       if (data.error === 'pairing_required') {
         el.innerHTML = '<div class="mc-empty">当前未完成配对，暂时无法读取定时任务。</div>';
@@ -593,7 +600,7 @@ class OpsModule {
         return;
       }
       el.innerHTML = jobs.slice(0, 8).map(job => `
-        <div class="mission-item">
+        <div class="mission-tile">
           <div class="mission-item-top">
             <span class="mission-item-title">${this.esc(job.name || job.id || '未命名任务')}</span>
             <span class="mission-item-badge">${this.esc(job.enabled === false ? '停用' : '启用')}</span>
@@ -602,6 +609,17 @@ class OpsModule {
         </div>
       `).join('');
     });
+  }
+
+  updateAlertSummary() {
+    const alerts = [];
+    const models = this.extractModels(this.healthData || {});
+    if ((this.healthData && this.healthData.error) || !models.length) alerts.push('模型');
+    if (!this.sessionsCache.length) alerts.push('会话');
+    if (this.cronData?.error === 'pairing_required') alerts.push('定时任务配对');
+    else if (this.cronData?.error) alerts.push('定时任务');
+    this.setText('#summaryAlertsCount', alerts.length);
+    this.setText('#summaryAlertsMeta', alerts.length ? `关注 ${alerts.join('、')}` : '当前一切正常');
   }
 
   setText(selector, value) {
