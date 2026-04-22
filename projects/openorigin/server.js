@@ -20,6 +20,7 @@ const MIME_TYPES = {
 // ---- Client Ops Data (local JSON) ----
 const CLIENT_OPS_PATH = path.join(STATIC_DIR, 'data', 'client-ops-sample.json');
 const OPENCLAW_CONFIG_PATH = '/Users/ze/.openclaw/openclaw.json';
+const IDENTITY_PATH = '/Users/ze/.openclaw/workspace/IDENTITY.md';
 
 function readClientOpsData() {
   try {
@@ -74,14 +75,24 @@ function getHealth() {
   });
 }
 
+function readIdentity() {
+  try {
+    const raw = fs.readFileSync(IDENTITY_PATH, 'utf8');
+    const name = (raw.match(/Name:\*\*(.+?)\*\*/)?.[1] || raw.match(/Name:\*\s*(.+)/)?.[1] || '').replace(/\*/g, '').trim();
+    const emoji = (raw.match(/Emoji:\*\*(.+?)\*\*/)?.[1] || raw.match(/Emoji:\*\s*(.+)/)?.[1] || '').replace(/\*/g, '').trim();
+    return { name: name.trim(), emoji: emoji.trim() };
+  } catch (e) { return { name: '', emoji: '' }; }
+}
+
 function getAgentsList() {
   try {
     const raw = fs.readFileSync(OPENCLAW_CONFIG_PATH, 'utf8');
     const cfg = JSON.parse(raw);
+    const identity = readIdentity();
     const agents = (cfg?.agents?.list || []).map(a => ({
       id: a.id,
-      name: a.id,
-      emoji: '',
+      name: identity.name || a.id,
+      emoji: identity.emoji || '',
       workspace: cfg?.agents?.defaults?.workspace || '',
       model: typeof a.model === 'string' ? a.model : (a.model?.primary || ''),
       isDefault: a.isDefault || false,
@@ -91,8 +102,8 @@ function getAgentsList() {
     if (!agents.length && cfg?.agents?.defaults) {
       agents.push({
         id: 'main',
-        name: 'main',
-        emoji: '',
+        name: identity.name || 'main',
+        emoji: identity.emoji || '',
         workspace: cfg.agents.defaults.workspace || '',
         model: cfg.agents.defaults.model?.primary || '',
         isDefault: true,
