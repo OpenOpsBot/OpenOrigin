@@ -436,22 +436,34 @@ class OpsModule {
     return `
       <div class="mission-summary-grid">
         <div class="mission-summary-card summary-models">
-          <div class="mission-summary-label">模型</div>
+          <div class="mission-summary-top">
+            <div class="mission-summary-icon"><i data-lucide="cpu"></i></div>
+            <div class="mission-summary-label">模型</div>
+          </div>
           <div class="mission-summary-value" id="summaryModelsCount">--</div>
           <div class="mission-summary-meta" id="summaryModelsMeta">加载中...</div>
         </div>
         <div class="mission-summary-card summary-sessions">
-          <div class="mission-summary-label">活跃会话</div>
+          <div class="mission-summary-top">
+            <div class="mission-summary-icon"><i data-lucide="activity"></i></div>
+            <div class="mission-summary-label">活跃会话</div>
+          </div>
           <div class="mission-summary-value" id="summarySessionsCount">--</div>
           <div class="mission-summary-meta" id="summarySessionsMeta">加载中...</div>
         </div>
         <div class="mission-summary-card summary-cron">
-          <div class="mission-summary-label">定时任务</div>
+          <div class="mission-summary-top">
+            <div class="mission-summary-icon"><i data-lucide="calendar-clock"></i></div>
+            <div class="mission-summary-label">定时任务</div>
+          </div>
           <div class="mission-summary-value" id="summaryCronCount">--</div>
           <div class="mission-summary-meta" id="summaryCronMeta">加载中...</div>
         </div>
         <div class="mission-summary-card summary-alerts" id="summaryAlertsCard">
-          <div class="mission-summary-label">异常提醒</div>
+          <div class="mission-summary-top">
+            <div class="mission-summary-icon"><i data-lucide="triangle-alert"></i></div>
+            <div class="mission-summary-label">异常提醒</div>
+          </div>
           <div class="mission-summary-value" id="summaryAlertsCount">--</div>
           <div class="mission-summary-meta" id="summaryAlertsMeta">加载中...</div>
         </div>
@@ -521,10 +533,14 @@ class OpsModule {
       el.innerHTML = models.map(model => `
         <div class="mission-tile ${model.statusClass === 'offline' ? 'tile-danger' : 'tile-ok'}">
           <div class="mission-item-top">
-            <span class="mission-item-title">${this.esc(model.name)}</span>
+            <div class="mission-item-title-wrap">
+              <div class="mission-item-icon"><i data-lucide="cpu"></i></div>
+              <span class="mission-item-title">${this.esc(model.name)}</span>
+            </div>
             <span class="feature-status ${model.statusClass}">${this.esc(model.statusText)}</span>
           </div>
           <div class="mission-item-meta">${this.esc(model.meta)}</div>
+          <div class="mission-item-submeta">状态通道 · ${this.esc(model.statusText)}</div>
         </div>
       `).join('');
     });
@@ -570,11 +586,17 @@ class OpsModule {
       el.innerHTML = sessions.slice(0, 8).map(session => `
         <div class="mission-tile mission-item-clickable ${session.abortedLastRun ? 'tile-danger' : 'tile-ok'}" data-session-key="${this.esc(session.key || '')}">
           <div class="mission-item-top">
-            <span class="mission-item-title">${this.esc(session.origin?.label || session.sessionId || '未命名会话')}</span>
+            <div class="mission-item-title-wrap">
+              <div class="mission-item-icon"><i data-lucide="scan-search"></i></div>
+              <span class="mission-item-title">${this.esc(session.origin?.label || session.sessionId || '未命名会话')}</span>
+            </div>
             <span class="mission-item-badge">${this.esc(session.kind || 'unknown')}</span>
           </div>
           <div class="mission-item-meta">${this.esc(`${session.modelProvider || '?'} / ${session.model || '?'}`)}</div>
-          <div class="mission-item-submeta">最近活跃 ${this.esc(this.formatAge(session.ageMs))}${session.abortedLastRun ? ' · 上次异常中断' : ''}</div>
+          <div class="mission-item-submeta-row">
+            <span class="mission-item-submeta">最近活跃 ${this.esc(this.formatAge(session.ageMs))}</span>
+            <span class="mission-item-submeta">${this.esc(session.abortedLastRun ? '异常中断' : '运行正常')}</span>
+          </div>
         </div>
       `).join('');
     });
@@ -602,10 +624,14 @@ class OpsModule {
       el.innerHTML = jobs.slice(0, 8).map(job => `
         <div class="mission-tile ${job.enabled === false ? 'tile-warning' : 'tile-ok'}">
           <div class="mission-item-top">
-            <span class="mission-item-title">${this.esc(job.name || job.id || '未命名任务')}</span>
+            <div class="mission-item-title-wrap">
+              <div class="mission-item-icon"><i data-lucide="clock-3"></i></div>
+              <span class="mission-item-title">${this.esc(job.name || job.id || '未命名任务')}</span>
+            </div>
             <span class="mission-item-badge">${this.esc(job.enabled === false ? '停用' : '启用')}</span>
           </div>
           <div class="mission-item-meta">${this.esc(job.schedule?.kind || job.scheduleKind || '未知计划')}</div>
+          <div class="mission-item-submeta">投递目标 · ${this.esc(job.sessionTarget || '未标注')}</div>
         </div>
       `).join('');
     });
