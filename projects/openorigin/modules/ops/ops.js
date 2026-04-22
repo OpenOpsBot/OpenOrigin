@@ -435,22 +435,22 @@ class OpsModule {
   renderMissionSummary() {
     return `
       <div class="mission-summary-grid">
-        <div class="mission-summary-card">
+        <div class="mission-summary-card summary-models">
           <div class="mission-summary-label">模型</div>
           <div class="mission-summary-value" id="summaryModelsCount">--</div>
           <div class="mission-summary-meta" id="summaryModelsMeta">加载中...</div>
         </div>
-        <div class="mission-summary-card">
+        <div class="mission-summary-card summary-sessions">
           <div class="mission-summary-label">活跃会话</div>
           <div class="mission-summary-value" id="summarySessionsCount">--</div>
           <div class="mission-summary-meta" id="summarySessionsMeta">加载中...</div>
         </div>
-        <div class="mission-summary-card">
+        <div class="mission-summary-card summary-cron">
           <div class="mission-summary-label">定时任务</div>
           <div class="mission-summary-value" id="summaryCronCount">--</div>
           <div class="mission-summary-meta" id="summaryCronMeta">加载中...</div>
         </div>
-        <div class="mission-summary-card">
+        <div class="mission-summary-card summary-alerts" id="summaryAlertsCard">
           <div class="mission-summary-label">异常提醒</div>
           <div class="mission-summary-value" id="summaryAlertsCount">--</div>
           <div class="mission-summary-meta" id="summaryAlertsMeta">加载中...</div>
@@ -519,7 +519,7 @@ class OpsModule {
         return;
       }
       el.innerHTML = models.map(model => `
-        <div class="mission-tile">
+        <div class="mission-tile ${model.statusClass === 'offline' ? 'tile-danger' : 'tile-ok'}">
           <div class="mission-item-top">
             <span class="mission-item-title">${this.esc(model.name)}</span>
             <span class="feature-status ${model.statusClass}">${this.esc(model.statusText)}</span>
@@ -568,13 +568,13 @@ class OpsModule {
         return;
       }
       el.innerHTML = sessions.slice(0, 8).map(session => `
-        <div class="mission-tile mission-item-clickable" data-session-key="${this.esc(session.key || '')}">
+        <div class="mission-tile mission-item-clickable ${session.abortedLastRun ? 'tile-danger' : 'tile-ok'}" data-session-key="${this.esc(session.key || '')}">
           <div class="mission-item-top">
             <span class="mission-item-title">${this.esc(session.origin?.label || session.sessionId || '未命名会话')}</span>
             <span class="mission-item-badge">${this.esc(session.kind || 'unknown')}</span>
           </div>
           <div class="mission-item-meta">${this.esc(`${session.modelProvider || '?'} / ${session.model || '?'}`)}</div>
-          <div class="mission-item-submeta">最近活跃 ${this.esc(this.formatAge(session.ageMs))}</div>
+          <div class="mission-item-submeta">最近活跃 ${this.esc(this.formatAge(session.ageMs))}${session.abortedLastRun ? ' · 上次异常中断' : ''}</div>
         </div>
       `).join('');
     });
@@ -600,7 +600,7 @@ class OpsModule {
         return;
       }
       el.innerHTML = jobs.slice(0, 8).map(job => `
-        <div class="mission-tile">
+        <div class="mission-tile ${job.enabled === false ? 'tile-warning' : 'tile-ok'}">
           <div class="mission-item-top">
             <span class="mission-item-title">${this.esc(job.name || job.id || '未命名任务')}</span>
             <span class="mission-item-badge">${this.esc(job.enabled === false ? '停用' : '启用')}</span>
@@ -620,6 +620,10 @@ class OpsModule {
     else if (this.cronData?.error) alerts.push('定时任务');
     this.setText('#summaryAlertsCount', alerts.length);
     this.setText('#summaryAlertsMeta', alerts.length ? `关注 ${alerts.join('、')}` : '当前一切正常');
+    this.view?.querySelectorAll('#summaryAlertsCard').forEach(el => {
+      el.classList.toggle('has-alert', alerts.length > 0);
+      el.classList.toggle('is-clear', alerts.length === 0);
+    });
   }
 
   setText(selector, value) {
