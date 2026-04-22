@@ -711,3 +711,5 @@ class OpsModule {
     });
   }
 }
+
+window.OpsModule = OpsModule;
