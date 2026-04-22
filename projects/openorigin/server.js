@@ -95,24 +95,35 @@ function getConfiguredModels() {
     const seen = new Set();
     const models = [];
 
-    const pushRef = (ref) => {
+    const pushRef = (ref, extra = {}) => {
       if (!ref || typeof ref !== 'string' || seen.has(ref)) return;
       seen.add(ref);
       const [provider, ...rest] = ref.split('/');
-      models.push({ ref, provider, model: rest.join('/') || provider });
+      const modelId = rest.join('/') || provider;
+      const providerEntry = cfg?.models?.providers?.[provider] || {};
+      const modelEntry = (providerEntry?.models || []).find(m => m.id === modelId) || {};
+      models.push({
+        ref,
+        provider,
+        model: modelId,
+        name: modelEntry?.name || modelId,
+        contextWindow: modelEntry?.contextWindow || null,
+        maxTokens: modelEntry?.maxTokens || null,
+        reasoning: !!modelEntry?.reasoning,
+        multimodal: (modelEntry?.input || []).includes('image'),
+        ...extra
+      });
     };
 
-    Object.keys(cfg?.agents?.defaults?.models || {}).forEach(pushRef);
-
     const primary = cfg?.agents?.defaults?.model?.primary;
-    if (typeof primary === 'string') pushRef(primary);
+    if (typeof primary === 'string') pushRef(primary, { role: 'primary' });
 
     const fallbacks = cfg?.agents?.list || [];
     fallbacks.forEach(agent => {
       const model = agent?.model;
       if (typeof model === 'string') pushRef(model);
       if (typeof model?.primary === 'string') pushRef(model.primary);
-      (model?.fallbacks || []).forEach(pushRef);
+      (model?.fallbacks || []).forEach(ref => pushRef(ref, { role: 'fallback' }));
     });
 
     Object.entries(cfg?.models?.providers || {}).forEach(([provider, providerCfg]) => {

@@ -541,19 +541,27 @@ class OpsModule {
         el.innerHTML = `<div class="mc-empty">${data.error ? '模型数据暂不可用' : '暂无模型信息'}</div>`;
         return;
       }
-      el.innerHTML = models.map(model => `
-        <div class="mission-tile ${model.statusClass === 'offline' ? 'tile-danger' : 'tile-ok'}">
+      el.innerHTML = models.map(model => {
+        const roleBadge = model.role === 'primary' ? '<span class="mission-item-badge badge-primary">主模型</span>' : (model.role === 'fallback' ? '<span class="mission-item-badge badge-warning">备选</span>' : '');
+        const chips = [
+          model.reasoning ? '<span class="mc-chip chip-blue">思维</span>' : '',
+          model.multimodal ? '<span class="mc-chip chip-purple">多模态</span>' : '',
+          model.contextWindow ? `<span class="mc-chip chip-dim">${this.formatTokens(model.contextWindow)}</span>` : ''
+        ].filter(Boolean);
+        return `
+        <div class="mission-tile ${model.statusClass === 'offline' ? 'tile-warning' : 'tile-ok'}">
           <div class="mission-item-top">
             <div class="mission-item-title-wrap">
               <div class="mission-item-icon"><i data-lucide="cpu"></i></div>
-              <span class="mission-item-title">${this.esc(model.name)}</span>
+              <span class="mission-item-title">${this.esc(model.displayName)}</span>
             </div>
-            <span class="feature-status ${model.statusClass}">${this.esc(model.statusText)}</span>
+            ${roleBadge}
           </div>
-          <div class="mission-item-meta">${this.esc(model.meta)}</div>
-          <div class="mission-item-submeta">状态通道 · ${this.esc(model.statusText)}</div>
-        </div>
-      `).join('');
+          <div class="mission-item-meta">${this.esc(model.provider)}</div>
+          <div class="mission-item-submeta">${this.esc(model.statusText)}</div>
+          ${chips.length ? `<div class="mission-item-chips">${chips.join('')}</div>` : ''}
+        </div>`;
+      }).join('');
     });
   }
 
@@ -565,9 +573,15 @@ class OpsModule {
       const isActive = activeRefs.has(name);
       return {
         name,
+        displayName: item.name || item.model || name,
+        provider: item.provider || '?',
         statusText: isActive ? '活跃' : '已配置',
         statusClass: isActive ? 'coming-soon' : 'offline',
-        meta: `${item.ref || name} · 数据源 models list`
+        role: item.role || null,
+        reasoning: item.reasoning || false,
+        multimodal: item.multimodal || false,
+        contextWindow: item.contextWindow || null,
+        maxTokens: item.maxTokens || null
       };
     });
   }
@@ -745,13 +759,11 @@ class OpsModule {
     document.body.style.overflow = '';
   }
 
-  formatAge(ms) {
-    if (!ms) return 'unknown';
-    const sec = Math.floor(ms / 1000);
-    if (sec < 60) return `${sec}s`;
-    const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m`;
-    return `${Math.floor(min / 60)}h`;
+  formatTokens(n) {
+    if (!n) return null;
+    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+    if (n >= 1000) return `${(n / 1000).toFixed(0)}K`;
+    return String(n);
   }
 
   isDueSoon(dateStr) {
