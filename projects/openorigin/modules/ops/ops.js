@@ -323,9 +323,11 @@ class OpsModule {
     try {
       const resp = await fetch('/api/models');
       const data = await resp.json();
+      this.modelsData = data;
       this.renderModels(data);
     } catch (e) {
-      this.renderModels({ error: 'load_error' });
+      this.modelsData = { error: 'load_error' };
+      this.renderModels(this.modelsData);
     }
   }
 
@@ -586,7 +588,7 @@ class OpsModule {
             <span class="mission-item-badge">${job.enabled ? '已启用' : '已停用'}</span>
           </div>
           <div class="mission-item-meta">${schedText}</div>
-          <div class="mission-item-submeta">上次: ${lastStatus === 'ok' ? '成功' : lastStatus === 'failed' ? '失败' : lastStatus}</div>
+          <div class="mission-item-submeta">上次: ${['ok','success'].includes(lastStatus) ? '成功' : ['failed','error'].includes(lastStatus) ? '失败' : lastStatus}</div>
         </div>`;
       }).join('');
     });
@@ -594,13 +596,13 @@ class OpsModule {
 
   updateAlertSummary() {
     const alerts = [];
-    const sessions = this.sessionsCache;
+    const sessions = this.sessionsCache || [];
     const cronJobs = this.cronData?.jobs || [];
-    const models = this.extractModels(this.healthData || {});
+    const models = this.extractModels(this.modelsData || {});
     if (this.healthData && this.healthData.error) alerts.push('系统');
-    if ((this.healthData && this.healthData.error) || !models.length) alerts.push('模型');
+    if ((this.modelsData && this.modelsData.error) || !models.length) alerts.push('模型');
     if (sessions.filter(s => s.abortedLastRun).length) alerts.push('会话');
-    if (cronJobs.filter(j => j.lastRun?.status === 'failed').length) alerts.push('定时');
+    if (cronJobs.filter(j => ['failed', 'error'].includes(j.lastRun?.status)).length) alerts.push('定时');
     const count = alerts.length;
     this.setText('#summaryAlertsCount', count || '0');
     this.setText('#summaryAlertsMeta', count ? `问题: ${alerts.join(', ')}` : '无异常');

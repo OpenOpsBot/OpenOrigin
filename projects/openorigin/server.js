@@ -167,6 +167,47 @@ function getConfiguredModels() {
   }
 }
 
+function getCronList() {
+  return new Promise((resolve) => {
+    exec('openclaw cron list --json', { timeout: 8000 }, (err, stdout, stderr) => {
+      if (err) {
+        const detail = (stderr || err.message || '').slice(0, 200);
+        resolve({ error: 'exec_error', detail });
+        return;
+      }
+      try {
+        const parsed = JSON.parse(stdout || '{}');
+        const jobs = Array.isArray(parsed.jobs) ? parsed.jobs.map(job => ({
+          id: job.id,
+          name: job.name,
+          description: job.description,
+          enabled: !!job.enabled,
+          schedule: job.schedule || null,
+          payload: job.payload || null,
+          nextRun: job.state?.nextRunAtMs ? new Date(job.state.nextRunAtMs).toISOString() : null,
+          lastRun: job.state?.lastRunAtMs ? {
+            at: new Date(job.state.lastRunAtMs).toISOString(),
+            durationMs: job.state?.lastDurationMs || null,
+            status: job.state?.lastRunStatus || job.state?.lastStatus || null,
+            error: job.state?.lastError || null
+          } : null,
+          state: job.state || null
+        })) : [];
+        resolve({
+          jobs,
+          total: parsed.total ?? jobs.length,
+          offset: parsed.offset ?? 0,
+          limit: parsed.limit ?? jobs.length,
+          hasMore: !!parsed.hasMore,
+          nextOffset: parsed.nextOffset ?? null
+        });
+      } catch (e) {
+        resolve({ error: 'parse_error', detail: (stdout || '').slice(0, 200) });
+      }
+    });
+  });
+}
+
 // ---- HTTP Server ----
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
