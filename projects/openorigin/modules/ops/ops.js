@@ -582,7 +582,7 @@ class OpsModule {
         else if (sched.kind === 'at') schedText = sched.at ? new Date(sched.at).toLocaleString('zh-CN') : '定时';
         const lastStatus = job.lastRun?.status || '--';
         return `
-        <div class="mission-tile ${job.enabled ? (lastStatus === 'failed' ? 'tile-danger' : 'tile-ok') : 'tile-warning'}">
+        <div class="mission-tile ${job.enabled ? (['failed', 'error'].includes(lastStatus) ? 'tile-danger' : 'tile-ok') : 'tile-warning'}">
           <div class="mission-item-top">
             <div class="mission-item-title-wrap">
               <div class="mission-item-icon"><i data-lucide="clock"></i></div>
@@ -625,7 +625,7 @@ class OpsModule {
       document.body.insertAdjacentHTML('beforeend', this.renderSessionModal());
       modal = document.getElementById('sessionModal');
       document.getElementById('sessionModalClose').addEventListener('click', () => this.closeSessionModal());
-      modal.querySelector('.overlay-backdrop').addEventListener('click', e => { if (e.target.classList.contains('overlay-backdrop')) this.closeSessionModal(); });
+      modal.addEventListener('click', e => { if (e.target === modal) this.closeSessionModal(); });
     }
     const isActive = session.ageMs < 5 * 60 * 1000;
     const tokenPct = session.contextTokens ? Math.round((session.totalTokens || 0) / session.contextTokens * 100) : null;
