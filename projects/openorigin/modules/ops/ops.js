@@ -681,16 +681,60 @@ class OpsModule {
     const backdrop = this.view.querySelector('#sessionModalBackdrop');
     const title = this.view.querySelector('#sessionModalTitle');
     const content = this.view.querySelector('#sessionModalContent');
-    title.textContent = session.origin?.label || session.sessionId || '会话详情';
+    const sourceLabel = session.origin?.label || session.key || '未知来源';
+    const modelLabel = `${session.modelProvider || '?'}/${session.model || '?'}`;
+    const sessionState = session.abortedLastRun ? '异常中断' : '运行正常';
+    title.textContent = '会话详情';
     content.innerHTML = `
-      <div class="detail-grid">
-        <div class="detail-card"><div class="detail-label">Session ID</div><div class="detail-value mono">${this.esc(session.sessionId || 'N/A')}</div></div>
-        <div class="detail-card"><div class="detail-label">模型</div><div class="detail-value">${this.esc(`${session.modelProvider || '?'}/${session.model || '?'}`)}</div></div>
-        <div class="detail-card"><div class="detail-label">活跃类型</div><div class="detail-value">${this.esc(session.kind || 'unknown')}</div></div>
-        <div class="detail-card"><div class="detail-label">最后活跃</div><div class="detail-value">${this.esc(this.formatAge(session.ageMs))}</div></div>
-        <div class="detail-card wide"><div class="detail-label">来源</div><div class="detail-value">${this.esc(session.origin?.label || session.key)}</div></div>
+      <div class="session-detail-shell">
+        <div class="session-detail-hero ${session.abortedLastRun ? 'is-danger' : 'is-ok'}">
+          <div class="session-detail-hero-top">
+            <div class="session-detail-hero-title-wrap">
+              <div class="session-detail-icon"><i data-lucide="messages-square"></i></div>
+              <div>
+                <div class="session-detail-eyebrow">SESSION OVERVIEW</div>
+                <div class="session-detail-title mono">${this.esc(session.sessionId || 'N/A')}</div>
+              </div>
+            </div>
+            <div class="session-detail-state ${session.abortedLastRun ? 'is-danger' : 'is-ok'}">${this.esc(sessionState)}</div>
+          </div>
+          <div class="session-detail-hero-meta">
+            <div class="session-detail-meta-chip"><span>模型</span><strong>${this.esc(modelLabel)}</strong></div>
+            <div class="session-detail-meta-chip"><span>类型</span><strong>${this.esc(session.kind || 'unknown')}</strong></div>
+            <div class="session-detail-meta-chip"><span>最后活跃</span><strong>${this.esc(this.formatAge(session.ageMs))}</strong></div>
+          </div>
+        </div>
+
+        <div class="session-detail-grid">
+          <div class="detail-card">
+            <div class="detail-label">Session ID</div>
+            <div class="detail-value mono">${this.esc(session.sessionId || 'N/A')}</div>
+            <div class="detail-subvalue">内部唯一标识</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-label">模型通道</div>
+            <div class="detail-value">${this.esc(modelLabel)}</div>
+            <div class="detail-subvalue">当前执行模型</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-label">活跃类型</div>
+            <div class="detail-value">${this.esc(session.kind || 'unknown')}</div>
+            <div class="detail-subvalue">会话表面类型</div>
+          </div>
+          <div class="detail-card">
+            <div class="detail-label">最近活跃</div>
+            <div class="detail-value">${this.esc(this.formatAge(session.ageMs))}</div>
+            <div class="detail-subvalue">最近一次更新</div>
+          </div>
+          <div class="detail-card wide">
+            <div class="detail-label">来源</div>
+            <div class="detail-value">${this.esc(sourceLabel)}</div>
+            <div class="detail-subvalue">来源通道 / 路由键</div>
+          </div>
+        </div>
       </div>
     `;
+    if (window.lucide) window.lucide.createIcons();
     backdrop.classList.add('active');
     document.body.style.overflow = 'hidden';
   }

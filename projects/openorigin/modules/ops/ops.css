@@ -564,9 +564,162 @@
   .mission-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
+.session-detail-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.session-detail-hero {
+  padding: 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.session-detail-hero.is-ok {
+  border-color: rgba(34, 197, 94, 0.24);
+  box-shadow: inset 0 0 18px rgba(34, 197, 94, 0.06), 0 0 24px rgba(34, 197, 94, 0.08);
+}
+
+.session-detail-hero.is-danger {
+  border-color: rgba(255, 95, 87, 0.28);
+  box-shadow: inset 0 0 18px rgba(255, 95, 87, 0.08), 0 0 24px rgba(255, 95, 87, 0.1);
+}
+
+.session-detail-hero-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.session-detail-hero-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.session-detail-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #ffd89a;
+}
+
+.session-detail-icon i {
+  width: 18px;
+  height: 18px;
+}
+
+.session-detail-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.session-detail-title {
+  font-size: 18px;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.session-detail-state {
+  height: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.session-detail-state.is-ok {
+  color: #9ef5bc;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.session-detail-state.is-danger {
+  color: #ff8a82;
+  background: rgba(255, 95, 87, 0.12);
+}
+
+.session-detail-hero-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.session-detail-meta-chip {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-detail-meta-chip span {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.session-detail-meta-chip strong {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.session-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.detail-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.detail-card.wide {
+  grid-column: 1 / -1;
+}
+
+.detail-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+.detail-value {
+  font-size: 15px;
+  color: var(--text-primary);
+  line-height: 1.45;
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.detail-subvalue {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
 @media (max-width: 900px) {
   .ops-dashboard { grid-template-columns: 1fr; }
   .stage-lanes { grid-template-columns: repeat(2, minmax(130px, 1fr)); }
   .mission-summary-grid,
-  .mission-grid { grid-template-columns: 1fr; }
+  .mission-grid,
+  .session-detail-hero-meta,
+  .session-detail-grid { grid-template-columns: 1fr; }
 }
