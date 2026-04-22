@@ -118,7 +118,8 @@ const server = http.createServer((req, res) => {
   }
 
   // Static files
-  let filePath = path.join(STATIC_DIR, req.url === '/' ? 'index.html' : req.url);
+  const requestPath = req.url.split('?')[0].split('#')[0];
+  let filePath = path.join(STATIC_DIR, requestPath === '/' ? 'index.html' : requestPath);
   const ext = path.extname(filePath);
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
   fs.readFile(filePath, (err, content) => {
