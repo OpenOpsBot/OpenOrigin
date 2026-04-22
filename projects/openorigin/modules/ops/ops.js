@@ -687,6 +687,7 @@ class OpsModule {
     document.getElementById('sessionStatusGrid').innerHTML = statusHtml;
     this.loadSessionHistory(session.key, session.sessionFile);
     if (window.lucide) window.lucide.createIcons();
+    modal.classList.add('active');
   }
 
   async loadSessionHistory(key, sessionFile) {
@@ -716,8 +717,6 @@ class OpsModule {
     } catch (e) {
       container.innerHTML = '<div class="mc-empty">加载失败</div>';
     }
-  }
-    modal.classList.add('active');
   }
 
   closeSessionModal() {
