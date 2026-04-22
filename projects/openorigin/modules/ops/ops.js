@@ -43,7 +43,7 @@ class OpsModule {
           ${this.renderClientOpsHeader()}
           ${this.renderStageLanes()}
           ${this.renderDeliverablesTable()}
-          ${this.renderOpsStats()}
+          ${this.renderOpsStats(this.clientOpsData || {})}
           ${this.renderSeatOverview()}
         </div>
       </div>
@@ -322,7 +322,7 @@ class OpsModule {
     });
   }
 
-  renderOpsStats(data) {
+  renderOpsStats(data = {}) {
     const tasks = data.tasks || [];
     const clients = data.clients || [];
     const now = new Date();
