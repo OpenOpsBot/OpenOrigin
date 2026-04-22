@@ -337,6 +337,61 @@
   .ops-stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
+.mission-panel {
+  min-height: 220px;
+}
+
+.mission-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mission-item {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(245, 158, 11, 0.12);
+}
+
+.mission-item-clickable {
+  cursor: pointer;
+}
+
+.mission-item-clickable:hover {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(255,255,255,0.05);
+}
+
+.mission-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.mission-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffd89a;
+}
+
+.mission-item-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.mission-item-badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
 @media (max-width: 900px) {
   .ops-dashboard { grid-template-columns: 1fr; }
   .stage-lanes { grid-template-columns: repeat(2, minmax(130px, 1fr)); }

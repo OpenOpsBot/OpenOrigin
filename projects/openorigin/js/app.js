@@ -7,7 +7,7 @@ class App {
     this.modulePages = {
       ops: [
         { key: 'dashboard', label: '仪表盘' },
-        { key: 'tasks', label: '任务管理' },
+        { key: 'tasks', label: '指挥台' },
         { key: 'deliverables', label: '交付追踪' }
       ],
       brain: [

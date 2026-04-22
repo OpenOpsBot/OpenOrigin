@@ -4,6 +4,8 @@ class OpsModule {
     this.refreshInterval = null;
     this.sessionsCache = [];
     this.clientOpsData = null;
+    this.healthData = null;
+    this.cronData = null;
     this.currentPage = 'dashboard';
   }
 
@@ -52,14 +54,16 @@ class OpsModule {
         <div class="dashboard single-page-dashboard ops-tasks-dashboard">
           <div class="panel">
             <div class="panel-header">
-              <i data-lucide="clipboard-check"></i>
-              任务管理
+              <i data-lucide="radar"></i>
+              指挥台
             </div>
             <div class="panel-body">
-              <div class="module-empty-copy">这里集中展示运营任务流转、优先级和阻塞项。</div>
+              <div class="module-empty-copy">这里集中显示模型、活跃会话和定时任务。</div>
             </div>
           </div>
-          ${this.renderStageLanes()}
+          ${this.renderModelsPanel()}
+          ${this.renderActiveSessionsPanel()}
+          ${this.renderCronPanel()}
         </div>
       </div>
 
@@ -232,7 +236,12 @@ class OpsModule {
   }
 
   async refreshAll() {
-    await Promise.all([this.loadClientOps(), this.loadSessions()]);
+    await Promise.all([
+      this.loadClientOps(),
+      this.loadSessions(),
+      this.loadHealth(),
+      this.loadCron()
+    ]);
   }
 
   async loadClientOps() {
@@ -385,9 +394,179 @@ class OpsModule {
     try {
       const resp = await fetch('/api/sessions');
       const data = await resp.json();
-      if (data.error) return;
+      if (data.error) {
+        this.sessionsCache = [];
+        this.renderActiveSessions([]);
+        return;
+      }
       this.sessionsCache = data.sessions || [];
-    } catch (e) {}
+      this.renderActiveSessions(this.sessionsCache);
+    } catch (e) {
+      this.sessionsCache = [];
+      this.renderActiveSessions([]);
+    }
+  }
+
+  async loadHealth() {
+    try {
+      const resp = await fetch('/api/health');
+      const data = await resp.json();
+      this.healthData = data;
+      this.renderModels(data);
+    } catch (e) {
+      this.healthData = { error: 'load_error' };
+      this.renderModels(this.healthData);
+    }
+  }
+
+  async loadCron() {
+    try {
+      const resp = await fetch('/api/cron');
+      const data = await resp.json();
+      this.cronData = data;
+      this.renderCronJobs(data);
+    } catch (e) {
+      this.cronData = { error: 'load_error' };
+      this.renderCronJobs(this.cronData);
+    }
+  }
+
+  renderModelsPanel() {
+    return `
+      <div class="panel mission-panel">
+        <div class="panel-header">
+          <i data-lucide="cpu"></i>
+          模型
+        </div>
+        <div class="panel-body">
+          <div class="mission-list" id="modelsList">
+            <div class="mc-loading">加载中...</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderActiveSessionsPanel() {
+    return `
+      <div class="panel mission-panel">
+        <div class="panel-header">
+          <i data-lucide="activity"></i>
+          活跃会话
+        </div>
+        <div class="panel-body">
+          <div class="mission-list" id="activeSessionsList">
+            <div class="mc-loading">加载中...</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderCronPanel() {
+    return `
+      <div class="panel mission-panel">
+        <div class="panel-header">
+          <i data-lucide="calendar-clock"></i>
+          定时任务
+        </div>
+        <div class="panel-body">
+          <div class="mission-list" id="cronJobsList">
+            <div class="mc-loading">加载中...</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderModels(data = {}) {
+    const nodes = this.view?.querySelectorAll('#modelsList') || [];
+    const models = this.extractModels(data);
+    nodes.forEach(el => {
+      if (!models.length) {
+        el.innerHTML = `<div class="mc-empty">${data.error ? '模型数据暂不可用' : '暂无模型信息'}</div>`;
+        return;
+      }
+      el.innerHTML = models.map(model => `
+        <div class="mission-item">
+          <div class="mission-item-top">
+            <span class="mission-item-title">${this.esc(model.name)}</span>
+            <span class="feature-status ${model.statusClass}">${this.esc(model.statusText)}</span>
+          </div>
+          <div class="mission-item-meta">${this.esc(model.meta)}</div>
+        </div>
+      `).join('');
+    });
+  }
+
+  extractModels(data = {}) {
+    const candidates = [];
+    const pushCandidate = (name, statusText = '未知', meta = '') => {
+      if (!name) return;
+      candidates.push({
+        name,
+        statusText,
+        statusClass: statusText.includes('在线') || statusText.includes('正常') ? 'coming-soon' : 'offline',
+        meta: meta || '运行信息待补充'
+      });
+    };
+
+    if (Array.isArray(data.models)) {
+      data.models.forEach(m => pushCandidate(m.name || m.id || m.model, m.status || m.state || '未知', m.provider || m.detail || ''));
+    }
+
+    if (data.model) {
+      pushCandidate(data.model, data.ok ? '正常' : '已连接', data.provider || '当前模型');
+    }
+
+    if (data.defaultModel) {
+      pushCandidate(data.defaultModel, '默认', data.defaultProvider || '默认模型');
+    }
+
+    return candidates.slice(0, 6);
+  }
+
+  renderActiveSessions(sessions = []) {
+    const nodes = this.view?.querySelectorAll('#activeSessionsList') || [];
+    nodes.forEach(el => {
+      if (!sessions.length) {
+        el.innerHTML = '<div class="mc-empty">暂无活跃会话</div>';
+        return;
+      }
+      el.innerHTML = sessions.slice(0, 8).map(session => `
+        <div class="mission-item mission-item-clickable" data-session-key="${this.esc(session.key || '')}">
+          <div class="mission-item-top">
+            <span class="mission-item-title">${this.esc(session.origin?.label || session.sessionId || '未命名会话')}</span>
+            <span class="mission-item-badge">${this.esc(session.kind || 'unknown')}</span>
+          </div>
+          <div class="mission-item-meta">${this.esc(`${session.modelProvider || '?'} / ${session.model || '?'}`)}</div>
+        </div>
+      `).join('');
+    });
+  }
+
+  renderCronJobs(data = {}) {
+    const nodes = this.view?.querySelectorAll('#cronJobsList') || [];
+    const jobs = Array.isArray(data.jobs) ? data.jobs : Array.isArray(data) ? data : [];
+    nodes.forEach(el => {
+      if (data.error === 'pairing_required') {
+        el.innerHTML = '<div class="mc-empty">当前未完成配对，暂时无法读取定时任务。</div>';
+        return;
+      }
+      if (!jobs.length) {
+        el.innerHTML = `<div class="mc-empty">${data.error ? '定时任务数据暂不可用' : '暂无定时任务'}</div>`;
+        return;
+      }
+      el.innerHTML = jobs.slice(0, 8).map(job => `
+        <div class="mission-item">
+          <div class="mission-item-top">
+            <span class="mission-item-title">${this.esc(job.name || job.id || '未命名任务')}</span>
+            <span class="mission-item-badge">${this.esc(job.enabled === false ? '停用' : '启用')}</span>
+          </div>
+          <div class="mission-item-meta">${this.esc(job.schedule?.kind || job.scheduleKind || '未知计划')}</div>
+        </div>
+      `).join('');
+    });
   }
 
   bindEvents() {
@@ -396,6 +575,13 @@ class OpsModule {
     if (closeBtn) closeBtn.addEventListener('click', () => this.closeSessionModal());
     if (backdrop) backdrop.addEventListener('click', e => {
       if (e.target === backdrop) this.closeSessionModal();
+    });
+    this.view.addEventListener('click', e => {
+      const card = e.target.closest('[data-session-key]');
+      if (!card) return;
+      const sessionKey = card.dataset.sessionKey;
+      const session = this.sessionsCache.find(item => item.key === sessionKey);
+      if (session) this.openSessionModal(session);
     });
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') this.closeSessionModal();
