@@ -3,7 +3,6 @@ class OpsModule {
     this.view = null;
     this.refreshInterval = null;
     this.sessionsCache = [];
-    this.clientOpsData = null;
     this.healthData = null;
     this.cronData = null;
     this.currentPage = 'dashboard';
@@ -35,6 +34,16 @@ class OpsModule {
     }
   }
 
+  refreshAll() {
+    Promise.all([
+      this.loadAgents(),
+      this.loadSessions(),
+      this.loadHealth(),
+      this.loadModels(),
+      this.loadCron()
+    ]);
+  }
+
   render() {
     this.view = document.createElement('div');
     this.view.className = 'module-view module-ops active';
@@ -42,11 +51,11 @@ class OpsModule {
     this.view.innerHTML = `
       <div class="module-page ${this.currentPage === 'dashboard' ? 'active' : ''}" data-page="dashboard">
         <div class="dashboard ops-dashboard">
-          ${this.renderClientOpsHeader()}
+          ${this.renderAgentsPanel()}
           ${this.renderStageLanes()}
-          ${this.renderDeliverablesTable()}
-          ${this.renderOpsStats(this.clientOpsData || {})}
-          ${this.renderSeatOverview()}
+          ${this.renderSessionsPanel()}
+          ${this.renderOpsStats()}
+          ${this.renderChannelsPanel()}
         </div>
       </div>
 
@@ -58,54 +67,94 @@ class OpsModule {
               指挥台
             </div>
             <div class="panel-body">
-              <div class="mission-hero-copy">统一查看模型、活跃会话与定时任务状态。</div>
-              ${this.renderMissionSummary()}
+              <div class="mission-summary-grid" id="missionSummaryGrid">
+                <div class="mission-summary-card summary-models" id="summaryModels">
+                  <div class="summary-icon"><i data-lucide="cpu"></i></div>
+                  <div class="summary-value" id="summaryModelsCount">--</div>
+                  <div class="summary-label">模型</div>
+                  <div class="summary-meta" id="summaryModelsMeta">加载中...</div>
+                </div>
+                <div class="mission-summary-card summary-sessions" id="summarySessions">
+                  <div class="summary-icon"><i data-lucide="scan-search"></i></div>
+                  <div class="summary-value" id="summarySessionsCount">--</div>
+                  <div class="summary-label">活跃会话</div>
+                  <div class="summary-meta" id="summarySessionsMeta">加载中...</div>
+                </div>
+                <div class="mission-summary-card summary-cron" id="summaryCron">
+                  <div class="summary-icon"><i data-lucide="clock"></i></div>
+                  <div class="summary-value" id="summaryCronCount">--</div>
+                  <div class="summary-label">定时任务</div>
+                  <div class="summary-meta" id="summaryCronMeta">加载中...</div>
+                </div>
+                <div class="mission-summary-card summary-alerts" id="summaryAlerts">
+                  <div class="summary-icon"><i data-lucide="alert-triangle"></i></div>
+                  <div class="summary-value" id="summaryAlertsCount">--</div>
+                  <div class="summary-label">异常提醒</div>
+                  <div class="summary-meta" id="summaryAlertsMeta">--</div>
+                </div>
+              </div>
+
+              <div class="mission-panels">
+                <div class="panel mission-panel" data-panel="sessions">
+                  <div class="panel-header">
+                    <i data-lucide="scan-search"></i>
+                    活跃会话
+                    <span class="panel-count" id="sessionsPanelCount">--</span>
+                  </div>
+                  <div class="panel-body">
+                    <div class="mission-grid" id="activeSessionsList"></div>
+                  </div>
+                </div>
+                <div class="panel mission-panel" data-panel="models">
+                  <div class="panel-header">
+                    <i data-lucide="cpu"></i>
+                    模型
+                    <span class="panel-count" id="modelsPanelCount">--</span>
+                  </div>
+                  <div class="panel-body">
+                    <div class="mission-grid" id="modelsList"></div>
+                  </div>
+                </div>
+                <div class="panel mission-panel" data-panel="cron">
+                  <div class="panel-header">
+                    <i data-lucide="clock"></i>
+                    定时任务
+                    <span class="panel-count" id="cronPanelCount">--</span>
+                  </div>
+                  <div class="panel-body">
+                    <div class="mission-grid" id="cronList"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          ${this.renderActiveSessionsPanel()}
-          ${this.renderModelsPanel()}
-          ${this.renderCronPanel()}
         </div>
       </div>
-
-      <div class="module-page ${this.currentPage === 'deliverables' ? 'active' : ''}" data-page="deliverables">
-        <div class="dashboard single-page-dashboard ops-deliverables-dashboard">
-          <div class="panel">
-            <div class="panel-header">
-              <i data-lucide="file-check"></i>
-              交付追踪
-            </div>
-            <div class="panel-body">
-              <div class="module-empty-copy">这里集中查看可交付成果、SLA 状态和负责人。</div>
-            </div>
-          </div>
-          ${this.renderDeliverablesTable()}
-        </div>
-      </div>
-
-      ${this.renderSessionModal()}
     `;
-    document.getElementById('mainContent').appendChild(this.view);
-    this.bindEvents();
-    if (window.lucide) window.lucide.createIcons();
-  }
 
-  updatePageVisibility() {
-    if (!this.view) return;
-    this.view.querySelectorAll('.module-page').forEach(page => {
-      page.classList.toggle('active', page.dataset.page === this.currentPage);
+    this.view.querySelectorAll('.mission-item-clickable').forEach(el => {
+      el.addEventListener('click', () => {
+        const key = el.dataset.sessionKey;
+        if (key) this.openSessionModal(key);
+      });
     });
+
+    document.body.appendChild(this.view);
+    this.refreshAll();
+    lucide.createIcons();
   }
 
-  renderClientOpsHeader() {
+  // ---- Dashboard panels ----
+
+  renderAgentsPanel() {
     return `
-      <div class="panel ops-clients-header">
+      <div class="panel agents-panel">
         <div class="panel-header">
-          <i data-lucide="users"></i>
-          客户工作台
+          <i data-lucide="bot"></i>
+          代理概览
         </div>
         <div class="panel-body">
-          <div class="clients-row" id="clientsRow">
+          <div class="agents-grid" id="agentsGrid">
             <div class="mc-loading">加载中...</div>
           </div>
         </div>
@@ -114,14 +163,6 @@ class OpsModule {
   }
 
   renderStageLanes() {
-    const stages = [
-      { key: 'intake', label: '需求接收', color: '#a78bfa' },
-      { key: 'scoping', label: '范围界定', color: '#818cf8' },
-      { key: 'execution', label: '执行中', color: '#ffd89a' },
-      { key: 'review', label: '审核', color: '#a3e635' },
-      { key: 'delivered', label: '已交付', color: '#06b6d4' },
-      { key: 'renewal', label: '续约', color: '#22c55e' }
-    ];
     return `
       <div class="panel stage-lanes-panel">
         <div class="panel-header">
@@ -130,10 +171,10 @@ class OpsModule {
         </div>
         <div class="panel-body">
           <div class="stage-lanes" id="stageLanes">
-            ${stages.map(s => `
-              <div class="stage-lane" data-stage="${s.key}">
-                <div class="stage-lane-label" style="color:${s.color}">${s.label}</div>
-                <div class="stage-lane-tasks" id="lane_${s.key}">
+            ${['pending','running','completed','failed'].map(s => `
+              <div class="stage-lane" data-stage="${s}">
+                <div class="stage-lane-label stage-${s}">${this.stageLabel(s)}</div>
+                <div class="stage-lane-tasks" id="lane_${s}">
                   <div class="lane-empty">--</div>
                 </div>
               </div>
@@ -144,27 +185,33 @@ class OpsModule {
     `;
   }
 
-  renderDeliverablesTable() {
+  stageLabel(key) {
+    return { pending: '待执行', running: '执行中', completed: '已完成', failed: '失败' }[key] || key;
+  }
+
+  renderSessionsPanel() {
     return `
       <div class="panel deliverables-panel">
         <div class="panel-header">
           <i data-lucide="file-check"></i>
-          可交付成果追踪
+          交付追踪
         </div>
         <div class="panel-body">
           <div class="deliverables-table-wrap">
-            <table class="deliverables-table" id="deliverablesTable">
+            <table class="deliverables-table" id="sessionsTable">
               <thead>
                 <tr>
-                  <th>客户</th>
-                  <th>可交付成果</th>
-                  <th>负责人</th>
-                  <th>SLA</th>
+                  <th>会话</th>
+                  <th>渠道</th>
+                  <th>类型</th>
+                  <th>模型</th>
+                  <th>Token</th>
+                  <th>最后活跃</th>
                   <th>状态</th>
                 </tr>
               </thead>
-              <tbody id="deliverablesBody">
-                <tr><td colspan="5" class="mc-loading">加载中...</td></tr>
+              <tbody id="sessionsBody">
+                <tr><td colspan="7" class="mc-loading">加载中...</td></tr>
               </tbody>
             </table>
           </div>
@@ -183,20 +230,20 @@ class OpsModule {
         <div class="panel-body">
           <div class="ops-stats-grid" id="opsStatsGrid">
             <div class="ops-stat-card">
-              <div class="ops-stat-value" id="statActiveClients">--</div>
-              <div class="ops-stat-label">活跃客户</div>
+              <div class="ops-stat-value" id="statActiveSessions">--</div>
+              <div class="ops-stat-label">活跃会话</div>
             </div>
             <div class="ops-stat-card">
-              <div class="ops-stat-value" id="statTasksDueSoon">--</div>
-              <div class="ops-stat-label">本周到期</div>
+              <div class="ops-stat-value" id="statCronTotal">--</div>
+              <div class="ops-stat-label">定时任务</div>
             </div>
             <div class="ops-stat-card warning">
-              <div class="ops-stat-value" id="statHighPriority">--</div>
-              <div class="ops-stat-label">高优先级</div>
+              <div class="ops-stat-value" id="statCronEnabled">--</div>
+              <div class="ops-stat-label">已启用</div>
             </div>
             <div class="ops-stat-card danger">
-              <div class="ops-stat-value" id="statBlocked">--</div>
-              <div class="ops-stat-label">被阻塞</div>
+              <div class="ops-stat-value" id="statCronFailed">--</div>
+              <div class="ops-stat-label">执行失败</div>
             </div>
           </div>
         </div>
@@ -204,15 +251,15 @@ class OpsModule {
     `;
   }
 
-  renderSeatOverview() {
+  renderChannelsPanel() {
     return `
       <div class="panel seat-overview-panel">
         <div class="panel-header">
-          <i data-lucide="contact"></i>
-          坐席概览
+          <i data-lucide="radio"></i>
+          渠道状态
         </div>
         <div class="panel-body">
-          <div class="seat-grid" id="seatGrid">
+          <div class="seat-grid" id="channelsGrid">
             <div class="mc-loading">加载中...</div>
           </div>
         </div>
@@ -220,192 +267,29 @@ class OpsModule {
     `;
   }
 
-  renderSessionModal() {
-    return `
-      <div class="overlay-backdrop" id="sessionModalBackdrop">
-        <div class="session-modal">
-          <div class="modal-header">
-            <div class="modal-title"><i data-lucide="messages-square"></i><span id="sessionModalTitle">会话详情</span></div>
-            <button class="btn btn-secondary" id="sessionModalClose">关闭</button>
-          </div>
-          <div class="modal-body">
-            <div id="sessionModalContent" class="session-modal-content"></div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
+  // ---- Data loaders ----
 
-  async refreshAll() {
-    await Promise.all([
-      this.loadClientOps(),
-      this.loadSessions(),
-      this.loadHealth(),
-      this.loadModels(),
-      this.loadCron()
-    ]);
-  }
-
-  async loadClientOps() {
+  async loadAgents() {
     try {
-      const resp = await fetch('/api/client-ops');
+      const resp = await fetch('/api/agents');
       const data = await resp.json();
-      if (data.error) return;
-      this.clientOpsData = data;
-      this.renderClients(data.clients || []);
-      this.renderStageLanesData(data.tasks || []);
-      this.renderDeliverables(data.deliverables || []);
-      this.renderOpsStats(data);
-      this.renderSeats(data.seats || []);
-    } catch (e) {}
-  }
-
-  renderClients(clients) {
-    const nodes = this.view?.querySelectorAll('#clientsRow') || [];
-    nodes.forEach(el => {
-      if (clients.length === 0) {
-        el.innerHTML = '<div class="mc-empty">暂无客户</div>';
-        return;
-      }
-      el.innerHTML = clients.map(c => `
-        <div class="client-chip">
-          <span class="client-chip-name">${this.esc(c.name)}</span>
-          <span class="client-chip-type">${this.esc(c.serviceType)}</span>
-        </div>
-      `).join('');
-    });
-  }
-
-  renderStageLanesData(tasks) {
-    const laneNodes = this.view?.querySelectorAll('[id^="lane_"]') || [];
-    laneNodes.forEach(lane => {
-      const stage = lane.id.replace('lane_', '');
-      const filtered = tasks.filter(t => t.stage === stage);
-      if (filtered.length === 0) {
-        lane.innerHTML = '<div class="lane-empty">无任务</div>';
-        return;
-      }
-      lane.innerHTML = filtered.map(t => {
-        const client = this.clientOpsData?.clients?.find(c => c.id === t.clientId);
-        const prio = t.priority || 'medium';
-        const hasBlocker = t.blockers && t.blockers.length > 0;
-        return `
-          <div class="task-card ${hasBlocker ? 'task-card-blocked' : ''}">
-            <div class="task-card-client">${this.esc(client?.name || t.clientId)}</div>
-            <div class="task-card-title">${this.esc(t.title)}</div>
-            <div class="task-card-meta">
-              <span class="task-priority-badge prio-${prio}">${prio}</span>
-              <span class="task-due-date ${this.isDueSoon(t.dueDate) ? 'due-soon' : ''}">${this.esc(t.dueDate || '--')}</span>
-            </div>
-            ${hasBlocker ? '<div class="task-blocker-tag">阻塞</div>' : ''}
-          </div>
-        `;
-      }).join('');
-    });
-  }
-
-  renderDeliverables(deliverables) {
-    const bodyNodes = this.view?.querySelectorAll('#deliverablesBody') || [];
-    bodyNodes.forEach(tbody => {
-      if (deliverables.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="mc-empty">无可交付成果</td></tr>';
-        return;
-      }
-      const SL = {
-        not_started: '未开始', drafting: '起草中',
-        in_review: '审核中', approved: '已批准',
-        delivered: '已交付', blocked: '被阻塞'
-      };
-      tbody.innerHTML = deliverables.map(d => {
-        const client = this.clientOpsData?.clients?.find(c => c.id === d.clientId);
-        const isOverdue = d.slaDate && new Date(d.slaDate) < new Date();
-        const isNear = this.isDueSoon(d.slaDate);
-        return `
-          <tr>
-            <td><span class="deliv-client">${this.esc(client?.name || d.clientId)}</span></td>
-            <td><span class="deliv-name">${this.esc(d.name)}</span></td>
-            <td><span class="deliv-owner">${this.esc(d.ownerId)}</span></td>
-            <td><span class="deliv-sla ${isOverdue ? 'sla-overdue' : isNear ? 'sla-near' : ''}">${this.esc(d.slaDate || '--')}</span></td>
-            <td><span class="deliv-status status-${d.status}">${SL[d.status] || d.status}</span></td>
-          </tr>
-        `;
-      }).join('');
-    });
-  }
-
-  renderOpsStats(data = {}) {
-    const tasks = data.tasks || [];
-    const clients = data.clients || [];
-    const now = new Date();
-    const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-    const ac = clients.filter(c => c.status === 'active').length;
-    const ds = tasks.filter(t => {
-      if (!t.dueDate) return false;
-      const d = new Date(t.dueDate);
-      return d >= now && d <= weekEnd;
-    }).length;
-    const hp = tasks.filter(t => t.priority === 'high' || t.priority === 'critical').length;
-    const bl = tasks.filter(t => t.blockers && t.blockers.length > 0).length;
-
-    const setText = (selector, val) => {
-      this.view?.querySelectorAll(selector).forEach(el => {
-        el.textContent = val;
-      });
-    };
-
-    setText('#statActiveClients', ac);
-    setText('#statTasksDueSoon', ds);
-    setText('#statHighPriority', hp);
-    setText('#statBlocked', bl);
-  }
-
-  renderSeats(seats) {
-    const nodes = this.view?.querySelectorAll('#seatGrid') || [];
-    nodes.forEach(el => {
-      if (!seats || seats.length === 0) {
-        el.innerHTML = '<div class="mc-empty">暂无坐席数据</div>';
-        return;
-      }
-      el.innerHTML = seats.map(s => `
-        <div class="seat-card">
-          <div class="seat-card-top">
-            <span class="seat-name">${this.esc(s.name)}</span>
-            <span class="status-dot ${s.sessionState === 'online' ? 'online' : 'offline'}"></span>
-          </div>
-          <div class="seat-metrics">
-            <div class="seat-metric">
-              <span class="seat-metric-val">${s.activeTasks}</span>
-              <span class="seat-metric-key">活跃任务</span>
-            </div>
-            <div class="seat-metric ${s.blockedTasks > 0 ? 'warn' : ''}">
-              <span class="seat-metric-val">${s.blockedTasks}</span>
-              <span class="seat-metric-key">被阻塞</span>
-            </div>
-            <div class="seat-metric ${s.overdueDeliverables > 0 ? 'warn' : ''}">
-              <span class="seat-metric-val">${s.overdueDeliverables}</span>
-              <span class="seat-metric-key">SLA逾期</span>
-            </div>
-          </div>
-        </div>
-      `).join('');
-    });
+      this.renderAgents(data.agents || []);
+    } catch (e) {
+      this.renderAgents([]);
+    }
   }
 
   async loadSessions() {
     try {
       const resp = await fetch('/api/sessions');
       const data = await resp.json();
-      if (data.error) {
-        this.sessionsCache = [];
-        this.renderActiveSessions([]);
-        return;
-      }
       this.sessionsCache = data.sessions || [];
+      this.renderSessionsTable(this.sessionsCache);
       this.renderActiveSessions(this.sessionsCache);
+      this.renderOpsStatsData();
     } catch (e) {
       this.sessionsCache = [];
-      this.renderActiveSessions([]);
+      this.renderSessionsTable([]);
     }
   }
 
@@ -414,20 +298,11 @@ class OpsModule {
       const resp = await fetch('/api/health');
       const data = await resp.json();
       this.healthData = data;
+      this.renderChannels(data.channels || {}, data.channelOrder || []);
       this.updateAlertSummary();
     } catch (e) {
       this.healthData = { error: 'load_error' };
       this.updateAlertSummary();
-    }
-  }
-
-  async loadModels() {
-    try {
-      const resp = await fetch('/api/models');
-      const data = await resp.json();
-      this.renderModels(data);
-    } catch (e) {
-      this.renderModels({ error: 'load_error' });
     }
   }
 
@@ -436,95 +311,151 @@ class OpsModule {
       const resp = await fetch('/api/cron');
       const data = await resp.json();
       this.cronData = data;
-      this.renderCronJobs(data);
+      this.renderCronJobs(data.jobs || []);
+      this.setText('#summaryCronCount', Array.isArray(data.jobs) ? data.jobs.length : '--');
     } catch (e) {
       this.cronData = { error: 'load_error' };
-      this.renderCronJobs(this.cronData);
+      this.renderCronJobs([]);
     }
   }
 
-  renderMissionSummary() {
-    return `
-      <div class="mission-summary-grid">
-        <div class="mission-summary-card summary-models">
-          <div class="mission-summary-top">
-            <div class="mission-summary-icon"><i data-lucide="cpu"></i></div>
-            <div class="mission-summary-label">模型</div>
+  // ---- Renderers ----
+
+  renderAgents(agents) {
+    const nodes = this.view?.querySelectorAll('#agentsGrid') || [];
+    nodes.forEach(el => {
+      if (!agents.length) {
+        el.innerHTML = '<div class="mc-empty">暂无代理信息</div>';
+        return;
+      }
+      el.innerHTML = agents.map(a => `
+        <div class="agent-card">
+          <div class="agent-card-top">
+            <span class="agent-emoji">${a.emoji}</span>
+            <span class="agent-name">${this.esc(a.name)}</span>
+            ${a.isDefault ? '<span class="agent-default-badge">默认</span>' : ''}
           </div>
-          <div class="mission-summary-value" id="summaryModelsCount">--</div>
-          <div class="mission-summary-meta" id="summaryModelsMeta">加载中...</div>
-        </div>
-        <div class="mission-summary-card summary-sessions">
-          <div class="mission-summary-top">
-            <div class="mission-summary-icon"><i data-lucide="activity"></i></div>
-            <div class="mission-summary-label">活跃会话</div>
+          <div class="agent-card-body">
+            <div class="agent-model">${this.esc(a.model || '未配置')}</div>
+            <div class="agent-workspace">${this.esc(a.workspace || '--')}</div>
           </div>
-          <div class="mission-summary-value" id="summarySessionsCount">--</div>
-          <div class="mission-summary-meta" id="summarySessionsMeta">加载中...</div>
-        </div>
-        <div class="mission-summary-card summary-cron">
-          <div class="mission-summary-top">
-            <div class="mission-summary-icon"><i data-lucide="calendar-clock"></i></div>
-            <div class="mission-summary-label">定时任务</div>
+          <div class="agent-providers">
+            ${(a.providers || []).map(p => `<span class="provider-chip">${this.esc(p)}</span>`).join('')}
           </div>
-          <div class="mission-summary-value" id="summaryCronCount">--</div>
-          <div class="mission-summary-meta" id="summaryCronMeta">加载中...</div>
         </div>
-        <div class="mission-summary-card summary-alerts" id="summaryAlertsCard">
-          <div class="mission-summary-top">
-            <div class="mission-summary-icon"><i data-lucide="triangle-alert"></i></div>
-            <div class="mission-summary-label">异常提醒</div>
-          </div>
-          <div class="mission-summary-value" id="summaryAlertsCount">--</div>
-          <div class="mission-summary-meta" id="summaryAlertsMeta">加载中...</div>
-        </div>
-      </div>
-    `;
+      `).join('');
+    });
   }
+
+  renderStageLanesData(sessions) {
+    const laneNodes = this.view?.querySelectorAll('[id^="lane_"]') || [];
+    const buckets = { pending: [], running: [], completed: [], failed: [] };
+
+    sessions.forEach(s => {
+      if (s.abortedLastRun) buckets.failed.push(s);
+      else if (s.ageMs < 5 * 60 * 1000) buckets.running.push(s);
+      else buckets.completed.push(s);
+    });
+
+    laneNodes.forEach(lane => {
+      const stage = lane.id.replace('lane_', '');
+      const items = buckets[stage] || [];
+      if (!items.length) {
+        lane.innerHTML = '<div class="lane-empty">无</div>';
+        return;
+      }
+      lane.innerHTML = items.slice(0, 5).map(s => `
+        <div class="task-card ${s.abortedLastRun ? 'task-card-blocked' : ''}">
+          <div class="task-card-client">${this.esc(s.origin?.label || s.sessionId || '未命名')}</div>
+          <div class="task-card-title">${this.esc(s.model || '--')}</div>
+          <div class="task-card-meta">
+            <span class="task-due-date ${s.abortedLastRun ? 'due-soon' : ''}">${this.formatAge(s.ageMs)}</span>
+          </div>
+        </div>
+      `).join('');
+    });
+  }
+
+  renderSessionsTable(sessions) {
+    const bodyNodes = this.view?.querySelectorAll('#sessionsBody') || [];
+    bodyNodes.forEach(tbody => {
+      if (!sessions.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="mc-empty">暂无会话数据</td></tr>';
+        return;
+      }
+      tbody.innerHTML = sessions.slice(0, 20).map(s => {
+        const isActive = s.ageMs < 5 * 60 * 1000;
+        const tokenPct = s.contextTokens ? Math.round((s.totalTokens || 0) / s.contextTokens * 100) : null;
+        return `
+          <tr class="${s.abortedLastRun ? 'row-danger' : isActive ? 'row-active' : ''}">
+            <td><span class="deliv-client">${this.esc(s.origin?.label || s.sessionId || '--')}</span></td>
+            <td><span class="deliv-name">${this.esc(s.origin?.provider || '--')}</span></td>
+            <td><span class="deliv-owner">${this.esc(s.kind || s.origin?.chatType || '--')}</span></td>
+            <td><span class="deliv-name">${this.esc(s.model || '--')}</span></td>
+            <td><span class="deliv-sla">${tokenPct !== null ? `${this.formatTokens(s.totalTokens || 0)}/${this.formatTokens(s.contextTokens)} (${tokenPct}%)` : '--'}</span></td>
+            <td><span class="deliv-sla ${isActive ? 'sla-ok' : ''}">${this.formatAge(s.ageMs)}</span></td>
+            <td><span class="deliv-status status-${s.abortedLastRun ? 'blocked' : isActive ? 'approved' : 'drafting'}">${s.abortedLastRun ? '失败' : isActive ? '活跃' : '已完成'}</span></td>
+          </tr>
+        `;
+      }).join('');
+    });
+  }
+
+  renderOpsStatsData() {
+    const sessions = this.sessionsCache;
+    const jobs = this.cronData?.jobs || [];
+    const activeSessions = sessions.filter(s => s.ageMs < 5 * 60 * 1000).length;
+    const cronFailed = jobs.filter(j => j.lastRun?.status === 'failed').length;
+    const cronEnabled = jobs.filter(j => j.enabled).length;
+
+    const setText = (selector, val) => {
+      this.view?.querySelectorAll(selector).forEach(el => { el.textContent = val; });
+    };
+    setText('#statActiveSessions', activeSessions);
+    setText('#statCronTotal', jobs.length);
+    setText('#statCronEnabled', cronEnabled);
+    setText('#statCronFailed', cronFailed);
+  }
+
+  renderChannels(channels, order) {
+    const nodes = this.view?.querySelectorAll('#channelsGrid') || [];
+    const list = order.map(k => [k, channels[k]]).filter(([, v]) => v);
+    nodes.forEach(el => {
+      if (!list.length) {
+        el.innerHTML = '<div class="mc-empty">暂无渠道配置</div>';
+        return;
+      }
+      el.innerHTML = list.map(([name, info]) => {
+        const status = info.running ? 'online' : (info.configured ? 'configured' : 'offline');
+        const statusText = info.running ? '运行中' : info.configured ? '已配置' : '未配置';
+        return `
+          <div class="seat-card">
+            <div class="seat-card-top">
+              <span class="seat-name">${this.esc(name)}</span>
+              <span class="status-dot ${status}"></span>
+            </div>
+            <div class="seat-stats">
+              <span>${statusText}</span>
+              ${info.lastError ? `<span class="seat-error">错误: ${this.esc(info.lastError)}</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    });
+  }
+
+  // ---- Mission Control renderers ----
 
   renderModelsPanel() {
     return `
-      <div class="panel mission-panel">
+      <div class="panel mission-panel" data-panel="models">
         <div class="panel-header">
           <i data-lucide="cpu"></i>
           模型
+          <span class="panel-count" id="modelsPanelCount">--</span>
         </div>
         <div class="panel-body">
-          <div class="mission-grid" id="modelsList">
-            <div class="mc-loading">加载中...</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  renderActiveSessionsPanel() {
-    return `
-      <div class="panel mission-panel mission-sessions-panel">
-        <div class="panel-header">
-          <i data-lucide="activity"></i>
-          活跃会话
-        </div>
-        <div class="panel-body">
-          <div class="mission-grid" id="activeSessionsList">
-            <div class="mc-loading">加载中...</div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  renderCronPanel() {
-    return `
-      <div class="panel mission-panel">
-        <div class="panel-header">
-          <i data-lucide="calendar-clock"></i>
-          定时任务
-        </div>
-        <div class="panel-body">
-          <div class="mission-grid" id="cronJobsList">
-            <div class="mc-loading">加载中...</div>
-          </div>
+          <div class="mission-grid" id="modelsList"></div>
         </div>
       </div>
     `;
@@ -588,15 +519,18 @@ class OpsModule {
 
   renderActiveSessions(sessions = []) {
     const nodes = this.view?.querySelectorAll('#activeSessionsList') || [];
-    this.setText('#summarySessionsCount', sessions.length);
+    const active = sessions.filter(s => s.ageMs < 30 * 60 * 1000);
+    this.setText('#summarySessionsCount', active.length);
     this.setText('#summarySessionsMeta', sessions[0] ? `${sessions[0].origin?.label || sessions[0].sessionId || '未命名会话'} · ${this.formatAge(sessions[0].ageMs)}` : '暂无活跃会话');
+    this.setText('#sessionsPanelCount', active.length);
+    this.setText('#summarySessionsCount', active.length);
     this.updateAlertSummary();
     nodes.forEach(el => {
-      if (!sessions.length) {
+      if (!active.length) {
         el.innerHTML = '<div class="mc-empty">暂无活跃会话</div>';
         return;
       }
-      el.innerHTML = sessions.slice(0, 8).map(session => `
+      el.innerHTML = active.slice(0, 8).map(session => `
         <div class="mission-tile mission-item-clickable ${session.abortedLastRun ? 'tile-danger' : 'tile-ok'}" data-session-key="${this.esc(session.key || '')}">
           <div class="mission-item-top">
             <div class="mission-item-title-wrap">
@@ -605,158 +539,144 @@ class OpsModule {
             </div>
             <span class="mission-item-badge">${this.esc(session.kind || 'unknown')}</span>
           </div>
-          <div class="mission-item-meta">${this.esc(`${session.modelProvider || '?'} / ${session.model || '?'}`)}</div>
-          <div class="mission-item-submeta-row">
-            <span class="mission-item-submeta">最近活跃 ${this.esc(this.formatAge(session.ageMs))}</span>
-            <span class="mission-item-submeta">${this.esc(session.abortedLastRun ? '异常中断' : '运行正常')}</span>
-          </div>
+          <div class="mission-item-meta">${this.esc(session.model || '--')}</div>
+          <div class="mission-item-submeta">最近活跃 ${this.esc(this.formatAge(session.ageMs))}</div>
         </div>
       `).join('');
+      el.querySelectorAll('.mission-item-clickable').forEach(tile => {
+        tile.addEventListener('click', () => this.openSessionModal(tile.dataset.sessionKey));
+      });
     });
   }
 
-  renderCronJobs(data = {}) {
-    const nodes = this.view?.querySelectorAll('#cronJobsList') || [];
-    const jobs = Array.isArray(data.jobs) ? data.jobs : Array.isArray(data) ? data : [];
-    this.setText('#summaryCronCount', jobs.length);
-    this.setText('#summaryCronMeta', data.error === 'pairing_required'
-      ? '等待配对'
-      : jobs[0]
-        ? `${jobs[0].name || jobs[0].id || '未命名任务'} · ${jobs[0].enabled === false ? '停用' : '启用'}`
-        : (data.error ? '暂不可用' : '暂无定时任务'));
+  renderCronJobs(jobs = []) {
+    const nodes = this.view?.querySelectorAll('#cronList') || [];
+    this.setText('#summaryCronMeta', `${jobs.filter(j => j.enabled).length} 已启用`);
+    this.setText('#cronPanelCount', jobs.length);
     this.updateAlertSummary();
     nodes.forEach(el => {
-      if (data.error === 'pairing_required') {
-        el.innerHTML = '<div class="mc-empty">当前未完成配对，暂时无法读取定时任务。</div>';
-        return;
-      }
       if (!jobs.length) {
-        el.innerHTML = `<div class="mc-empty">${data.error ? '定时任务数据暂不可用' : '暂无定时任务'}</div>`;
+        el.innerHTML = '<div class="mc-empty">暂无定时任务</div>';
         return;
       }
-      el.innerHTML = jobs.slice(0, 8).map(job => `
-        <div class="mission-tile ${job.enabled === false ? 'tile-warning' : 'tile-ok'}">
+      el.innerHTML = jobs.slice(0, 8).map(job => {
+        const sched = job.schedule || {};
+        let schedText = '未知';
+        if (sched.kind === 'every') schedText = `每 ${Math.round(sched.everyMs / 60000)}m`;
+        else if (sched.kind === 'cron') schedText = sched.expr || 'cron';
+        else if (sched.kind === 'at') schedText = sched.at ? new Date(sched.at).toLocaleString('zh-CN') : '定时';
+        const lastStatus = job.lastRun?.status || '--';
+        return `
+        <div class="mission-tile ${job.enabled ? (lastStatus === 'failed' ? 'tile-danger' : 'tile-ok') : 'tile-warning'}">
           <div class="mission-item-top">
             <div class="mission-item-title-wrap">
-              <div class="mission-item-icon"><i data-lucide="clock-3"></i></div>
-              <span class="mission-item-title">${this.esc(job.name || job.id || '未命名任务')}</span>
+              <div class="mission-item-icon"><i data-lucide="clock"></i></div>
+              <span class="mission-item-title">${this.esc(job.name || job.id || '--')}</span>
             </div>
-            <span class="mission-item-badge">${this.esc(job.enabled === false ? '停用' : '启用')}</span>
+            <span class="mission-item-badge">${job.enabled ? '已启用' : '已停用'}</span>
           </div>
-          <div class="mission-item-meta">${this.esc(job.schedule?.kind || job.scheduleKind || '未知计划')}</div>
-          <div class="mission-item-submeta">投递目标 · ${this.esc(job.sessionTarget || '未标注')}</div>
-        </div>
-      `).join('');
+          <div class="mission-item-meta">${schedText}</div>
+          <div class="mission-item-submeta">上次: ${lastStatus === 'ok' ? '成功' : lastStatus === 'failed' ? '失败' : lastStatus}</div>
+        </div>`;
+      }).join('');
     });
   }
 
   updateAlertSummary() {
     const alerts = [];
+    const sessions = this.sessionsCache;
+    const cronJobs = this.cronData?.jobs || [];
     const models = this.extractModels(this.healthData || {});
+    if (this.healthData && this.healthData.error) alerts.push('系统');
     if ((this.healthData && this.healthData.error) || !models.length) alerts.push('模型');
-    if (!this.sessionsCache.length) alerts.push('会话');
-    if (this.cronData?.error === 'pairing_required') alerts.push('定时任务配对');
-    else if (this.cronData?.error) alerts.push('定时任务');
-    this.setText('#summaryAlertsCount', alerts.length);
-    this.setText('#summaryAlertsMeta', alerts.length ? `关注 ${alerts.join('、')}` : '当前一切正常');
-    this.view?.querySelectorAll('#summaryAlertsCard').forEach(el => {
-      el.classList.toggle('has-alert', alerts.length > 0);
-      el.classList.toggle('is-clear', alerts.length === 0);
-    });
+    if (sessions.filter(s => s.abortedLastRun).length) alerts.push('会话');
+    if (cronJobs.filter(j => j.lastRun?.status === 'failed').length) alerts.push('定时');
+    const count = alerts.length;
+    this.setText('#summaryAlertsCount', count || '0');
+    this.setText('#summaryAlertsMeta', count ? `问题: ${alerts.join(', ')}` : '无异常');
   }
 
-  setText(selector, value) {
-    this.view?.querySelectorAll(selector).forEach(el => {
-      el.textContent = value;
-    });
+  // ---- Session modal ----
+
+  openSessionModal(key) {
+    const session = this.sessionsCache.find(s => s.key === key);
+    if (!session) return;
+    this.buildSessionModal(session);
   }
 
-  bindEvents() {
-    const closeBtn = this.view.querySelector('#sessionModalClose');
-    const backdrop = this.view.querySelector('#sessionModalBackdrop');
-    if (closeBtn) closeBtn.addEventListener('click', () => this.closeSessionModal());
-    if (backdrop) backdrop.addEventListener('click', e => {
-      if (e.target === backdrop) this.closeSessionModal();
-    });
-    this.view.addEventListener('click', e => {
-      const card = e.target.closest('[data-session-key]');
-      if (!card) return;
-      const sessionKey = card.dataset.sessionKey;
-      const session = this.sessionsCache.find(item => item.key === sessionKey);
-      if (session) this.openSessionModal(session);
-    });
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') this.closeSessionModal();
-    });
+  buildSessionModal(session) {
+    let modal = document.getElementById('sessionModal');
+    if (!modal) {
+      document.body.insertAdjacentHTML('beforeend', this.renderSessionModal());
+      modal = document.getElementById('sessionModal');
+      document.getElementById('sessionModalClose').addEventListener('click', () => this.closeSessionModal());
+      modal.querySelector('.overlay-backdrop').addEventListener('click', e => { if (e.target.classList.contains('overlay-backdrop')) this.closeSessionModal(); });
+    }
+    const isActive = session.ageMs < 5 * 60 * 1000;
+    const tokenPct = session.contextTokens ? Math.round((session.totalTokens || 0) / session.contextTokens * 100) : null;
+    document.getElementById('sessionModalTitle').textContent = session.origin?.label || session.sessionId || '会话详情';
+    document.getElementById('sessionHeroState').textContent = session.abortedLastRun ? '失败' : isActive ? '活跃' : '已完成';
+    document.getElementById('sessionHeroState').className = `session-state-badge state-${session.abortedLastRun ? 'danger' : isActive ? 'ok' : 'dim'}`;
+    const metaHtml = `
+      <div class="session-detail-meta-chip"><span>会话ID</span><strong>${this.esc(session.sessionId || '--')}</strong></div>
+      <div class="session-detail-meta-chip"><span>渠道</span><strong>${this.esc(session.origin?.provider || '--')}</strong></div>
+      <div class="session-detail-meta-chip"><span>类型</span><strong>${this.esc(session.origin?.chatType || session.kind || '--')}</strong></div>
+      <div class="session-detail-meta-chip"><span>模型</span><strong>${this.esc(session.model || '--')}</strong></div>
+      ${tokenPct !== null ? `<div class="session-detail-meta-chip"><span>Token</span><strong>${this.formatTokens(session.totalTokens || 0)} / ${this.formatTokens(session.contextTokens)} (${tokenPct}%)</strong></div>` : ''}
+      <div class="session-detail-meta-chip"><span>最后活跃</span><strong>${this.esc(this.formatAge(session.ageMs))}</strong></div>
+    `;
+    document.getElementById('sessionHeroMeta').innerHTML = metaHtml;
+    const infoHtml = `
+      <div class="detail-row"><span class="detail-label">Session Key</span><span class="detail-value">${this.esc(session.key || '--')}</span></div>
+      <div class="detail-row"><span class="detail-label">Surface</span><span class="detail-value">${this.esc(session.origin?.surface || '--')}</span></div>
+      <div class="detail-row"><span class="detail-label">Provider</span><span class="detail-value">${this.esc(session.modelProvider || '--')}</span></div>
+      <div class="detail-row"><span class="detail-label">最后更新</span><span class="detail-value">${session.updatedAt ? new Date(session.updatedAt).toLocaleString('zh-CN') : '--'}</span></div>
+      <div class="detail-row"><span class="detail-label">最后活跃</span><span class="detail-value">${this.formatAge(session.ageMs)}</span></div>
+      <div class="detail-row"><span class="detail-label">执行状态</span><span class="detail-value">${session.abortedLastRun ? '失败' : '正常'}</span></div>
+    `;
+    document.getElementById('sessionDetailInfo').innerHTML = infoHtml;
+    modal.classList.add('active');
   }
 
-  openSessionModal(session) {
-    const backdrop = this.view.querySelector('#sessionModalBackdrop');
-    const title = this.view.querySelector('#sessionModalTitle');
-    const content = this.view.querySelector('#sessionModalContent');
-    const sourceLabel = session.origin?.label || session.key || '未知来源';
-    const modelLabel = `${session.modelProvider || '?'}/${session.model || '?'}`;
-    const sessionState = session.abortedLastRun ? '异常中断' : '运行正常';
-    title.textContent = '会话详情';
-    content.innerHTML = `
-      <div class="session-detail-shell">
-        <div class="session-detail-hero ${session.abortedLastRun ? 'is-danger' : 'is-ok'}">
-          <div class="session-detail-hero-top">
-            <div class="session-detail-hero-title-wrap">
-              <div class="session-detail-icon"><i data-lucide="messages-square"></i></div>
-              <div>
-                <div class="session-detail-eyebrow">SESSION OVERVIEW</div>
-                <div class="session-detail-title mono">${this.esc(session.sessionId || 'N/A')}</div>
+  closeSessionModal() {
+    document.getElementById('sessionModal')?.classList.remove('active');
+  }
+
+  renderSessionModal() {
+    return `
+      <div class="overlay-backdrop" id="sessionModalBackdrop">
+        <div class="session-modal" id="sessionModal">
+          <div class="modal-header">
+            <div class="modal-title"><i data-lucide="messages-square"></i><span id="sessionModalTitle">会话详情</span></div>
+            <button class="btn btn-secondary" id="sessionModalClose">关闭</button>
+          </div>
+          <div class="session-detail-shell">
+            <div class="session-detail-hero">
+              <div class="session-hero-top">
+                <div class="session-hero-title" id="sessionHeroTitle">--</div>
+                <span class="session-state-badge" id="sessionHeroState">--</span>
               </div>
+              <div class="session-hero-meta" id="sessionHeroMeta"></div>
             </div>
-            <div class="session-detail-state ${session.abortedLastRun ? 'is-danger' : 'is-ok'}">${this.esc(sessionState)}</div>
-          </div>
-          <div class="session-detail-hero-meta">
-            <div class="session-detail-meta-chip"><span>模型</span><strong>${this.esc(modelLabel)}</strong></div>
-            <div class="session-detail-meta-chip"><span>类型</span><strong>${this.esc(session.kind || 'unknown')}</strong></div>
-            <div class="session-detail-meta-chip"><span>最后活跃</span><strong>${this.esc(this.formatAge(session.ageMs))}</strong></div>
-          </div>
-        </div>
-
-        <div class="session-detail-grid">
-          <div class="detail-card">
-            <div class="detail-label">Session ID</div>
-            <div class="detail-value mono">${this.esc(session.sessionId || 'N/A')}</div>
-            <div class="detail-subvalue">内部唯一标识</div>
-          </div>
-          <div class="detail-card">
-            <div class="detail-label">模型通道</div>
-            <div class="detail-value">${this.esc(modelLabel)}</div>
-            <div class="detail-subvalue">当前执行模型</div>
-          </div>
-          <div class="detail-card">
-            <div class="detail-label">活跃类型</div>
-            <div class="detail-value">${this.esc(session.kind || 'unknown')}</div>
-            <div class="detail-subvalue">会话表面类型</div>
-          </div>
-          <div class="detail-card">
-            <div class="detail-label">最近活跃</div>
-            <div class="detail-value">${this.esc(this.formatAge(session.ageMs))}</div>
-            <div class="detail-subvalue">最近一次更新</div>
-          </div>
-          <div class="detail-card wide">
-            <div class="detail-label">来源</div>
-            <div class="detail-value">${this.esc(sourceLabel)}</div>
-            <div class="detail-subvalue">来源通道 / 路由键</div>
+            <div class="session-detail-card">
+              <div class="detail-section-title">会话信息</div>
+              <div class="detail-grid" id="sessionDetailInfo"></div>
+            </div>
           </div>
         </div>
       </div>
     `;
-    if (window.lucide) window.lucide.createIcons();
-    backdrop.classList.add('active');
-    document.body.style.overflow = 'hidden';
   }
 
-  closeSessionModal() {
-    if (!this.view) return;
-    const b = this.view.querySelector('#sessionModalBackdrop');
-    if (b) b.classList.remove('active');
-    document.body.style.overflow = '';
+  // ---- Utilities ----
+
+  setText(selector, val) {
+    this.view?.querySelectorAll(selector).forEach(el => { el.textContent = val; });
+  }
+
+  esc(str) {
+    if (str == null) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   formatTokens(n) {
@@ -766,15 +686,18 @@ class OpsModule {
     return String(n);
   }
 
-  isDueSoon(dateStr) {
-    if (!dateStr) return false;
-    const diff = new Date(dateStr) - new Date();
-    return diff > 0 && diff < 3 * 24 * 60 * 60 * 1000;
+  formatAge(ms) {
+    if (!ms) return 'unknown';
+    const sec = Math.floor(ms / 1000);
+    if (sec < 60) return `${sec}s`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m`;
+    return `${Math.floor(min / 60)}h`;
   }
 
-  esc(v) {
-    return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  updatePageVisibility() {
+    this.view?.querySelectorAll('.module-page').forEach(p => {
+      p.classList.toggle('active', p.dataset.page === this.currentPage);
+    });
   }
 }
-
-window.OpsModule = OpsModule;

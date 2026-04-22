@@ -141,6 +141,47 @@ Scheduled cron jobs from `openclaw cron list --json`.
 
 ---
 
+### `GET /api/agents`
+
+Configured agents from `openclaw agents list --json`.
+
+**Source:** `openclaw agents list --json` (CLI → JSON parse)
+
+**Response**
+```json
+{
+  "agents": [
+    {
+      "id": "main",
+      "name": "小猿",
+      "emoji": "🐵",
+      "workspace": "/Users/ze/.openclaw/workspace",
+      "model": "openai-codex/gpt-5.4",
+      "isDefault": true,
+      "providers": ["Telegram default: configured"],
+      "bindingCount": 0
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Agent identifier |
+| `name` | `string` | Identity name (from `identityName`) |
+| `emoji` | `string` | Identity emoji |
+| `workspace` | `string` | Workspace directory path |
+| `model` | `string` | Primary model ref |
+| `isDefault` | `bool` | Is the default agent |
+| `providers` | `string[]` | Provider status lines |
+| `bindingCount` | `number` | Number of routing bindings |
+
+**Error codes**
+- `agents_error` — CLI execution failed
+- `parse_error` — CLI returned non-JSON
+
+---
+
 ### `GET /api/models`
 
 Configured models from `openclaw.json`.

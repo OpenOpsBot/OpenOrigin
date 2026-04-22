@@ -74,18 +74,36 @@ function getHealth() {
   });
 }
 
-function getCronList() {
-  return new Promise((resolve) => {
-    exec('openclaw cron list --json', { timeout: 8000 }, (err, stdout) => {
-      if (err) {
-        if (err.message.includes('pairing required')) resolve({ error: 'pairing_required' });
-        else resolve({ error: 'exec_error', detail: err.message.slice(0, 200) });
-      } else {
-        try { resolve(JSON.parse(stdout)); }
-        catch (e) { resolve({ error: 'parse_error', detail: stdout.slice(0, 200) }); }
-      }
-    });
-  });
+function getAgentsList() {
+  try {
+    const raw = fs.readFileSync(OPENCLAW_CONFIG_PATH, 'utf8');
+    const cfg = JSON.parse(raw);
+    const agents = (cfg?.agents?.list || []).map(a => ({
+      id: a.id,
+      name: a.id,
+      emoji: '',
+      workspace: cfg?.agents?.defaults?.workspace || '',
+      model: typeof a.model === 'string' ? a.model : (a.model?.primary || ''),
+      isDefault: a.isDefault || false,
+      providers: [],
+      bindingCount: 0
+    }));
+    if (!agents.length && cfg?.agents?.defaults) {
+      agents.push({
+        id: 'main',
+        name: 'main',
+        emoji: '',
+        workspace: cfg.agents.defaults.workspace || '',
+        model: cfg.agents.defaults.model?.primary || '',
+        isDefault: true,
+        providers: [],
+        bindingCount: 0
+      });
+    }
+    return { agents };
+  } catch (e) {
+    return { error: 'agents_error', detail: e.message.slice(0, 200) };
+  }
 }
 
 function getConfiguredModels() {
@@ -161,6 +179,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/api/cron') {
     getCronList().then(data => sendJson(data)).catch(() => sendJson({ error: 'server_error' }, 500));
+    return;
+  }
+  if (req.url === '/api/agents') {
+    sendJson(getAgentsList());
     return;
   }
   if (req.url === '/api/client-ops') {
