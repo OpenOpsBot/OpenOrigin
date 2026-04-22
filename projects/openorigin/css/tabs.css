@@ -17,7 +17,9 @@
 .tab-bar-inner {
   display: flex;
   align-items: center;
+  gap: 18px;
   height: 100%;
+  width: 100%;
   padding: 0 14px;
 }
 
@@ -26,6 +28,16 @@
   align-items: center;
   gap: 8px;
   height: 100%;
+  flex-shrink: 0;
+}
+
+.page-tabs-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-left: 6px;
 }
 
 .tab {
@@ -101,4 +113,43 @@
 
 .tab.drag-over {
   background: rgba(255,255,255,0.07);
+}
+
+.page-tab {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.page-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.06);
+}
+
+.page-tab.active {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.08);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
+}
+
+body[data-active-module="ops"] .page-tab.active {
+  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.7), 0 0 14px rgba(245, 158, 11, 0.16);
+  color: #ffd89a;
+}
+
+body[data-active-module="brain"] .page-tab.active {
+  box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.7), 0 0 14px rgba(6, 182, 212, 0.16);
+  color: #9cecff;
+}
+
+body[data-active-module="laboratory"] .page-tab.active {
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.7), 0 0 14px rgba(34, 197, 94, 0.16);
+  color: #9ef5bc;
 }

@@ -64,6 +64,49 @@ body::before {
   display: block;
 }
 
+.module-page {
+  display: none;
+  height: 100%;
+}
+
+.module-page.active {
+  display: block;
+}
+
+.single-page-dashboard {
+  grid-template-columns: 1fr;
+}
+
+.page-placeholder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.page-placeholder-card,
+.tasks-page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.page-placeholder-card {
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.page-placeholder-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.ops-page-full {
+  grid-column: 1 / -1;
+}
+
 .dashboard {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));

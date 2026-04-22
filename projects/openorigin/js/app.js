@@ -1,8 +1,25 @@
 class App {
   constructor() {
     this.currentModule = null;
+    this.currentPage = null;
     this.modules = {};
     this.mainContent = document.getElementById('mainContent');
+    this.modulePages = {
+      ops: [
+        { key: 'dashboard', label: '仪表盘' },
+        { key: 'tasks', label: '任务管理' }
+      ],
+      brain: [
+        { key: 'dashboard', label: '仪表盘' },
+        { key: 'daily-briefing', label: '每日简报' },
+        { key: 'agents', label: '智能体' },
+        { key: 'schedules', label: '定时任务' }
+      ],
+      laboratory: [
+        { key: 'dashboard', label: '仪表盘' },
+        { key: 'ideas', label: '创意库' }
+      ]
+    };
   }
 
   async init() {
@@ -10,23 +27,50 @@ class App {
     if (window.BrainModule) this.modules.brain = new BrainModule();
     if (window.LaboratoryModule) this.modules.laboratory = new LaboratoryModule();
 
-    if (window.TabManager) new TabManager();
-    if (window.DockManager) new DockManager();
+    if (window.TabManager) this.tabManager = new TabManager();
+    if (window.DockManager) this.dockManager = new DockManager();
 
     this.switchModule('ops');
   }
 
-  switchModule(moduleName) {
-    if (this.currentModule === moduleName) return;
+  getPages(moduleName) {
+    return this.modulePages[moduleName] || [];
+  }
+
+  getDefaultPage(moduleName) {
+    return this.getPages(moduleName)[0]?.key || null;
+  }
+
+  switchModule(moduleName, pageKey = null) {
+    if (!this.modules[moduleName]) return;
 
     Object.values(this.modules).forEach(m => {
       if (m && m.hide) m.hide();
     });
 
-    if (this.modules[moduleName]) {
-      this.modules[moduleName].show();
-      this.currentModule = moduleName;
-      document.body.setAttribute('data-active-module', moduleName);
+    const targetPage = pageKey || (this.currentModule === moduleName ? this.currentPage : this.getDefaultPage(moduleName));
+
+    this.modules[moduleName].show(targetPage);
+    this.currentModule = moduleName;
+    this.currentPage = targetPage;
+    document.body.setAttribute('data-active-module', moduleName);
+
+    if (this.tabManager) {
+      this.tabManager.setModule(moduleName, targetPage);
+    }
+
+    if (this.dockManager) {
+      this.dockManager.setActive(moduleName);
+    }
+  }
+
+  switchPage(pageKey) {
+    if (!this.currentModule || !this.modules[this.currentModule]) return;
+    this.currentPage = pageKey;
+    this.modules[this.currentModule].show(pageKey);
+
+    if (this.tabManager) {
+      this.tabManager.setPageActive(pageKey);
     }
   }
 }

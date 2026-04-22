@@ -1,4 +1,3 @@
-// Dock Management - Mac OS X style floating dock
 class DockManager {
   constructor() {
     this.dock = document.getElementById('mainDock');
@@ -10,27 +9,9 @@ class DockManager {
     this.items.forEach(item => {
       item.addEventListener('click', () => {
         const moduleName = item.dataset.module;
-        this.activateModule(moduleName);
+        if (moduleName && window.App) window.App.switchModule(moduleName);
       });
     });
-  }
-
-  activateModule(moduleName) {
-    // Update dock active state
-    this.items.forEach(item => {
-      item.classList.toggle('active', item.dataset.module === moduleName);
-    });
-
-    // Sync tabs
-    if (window.TabManager) {
-      const tab = document.querySelector(`.tab[data-module="${moduleName}"]`);
-      if (tab) TabManager.activateTab(tab);
-    }
-
-    // Switch module view
-    if (window.App) {
-      window.App.switchModule(moduleName);
-    }
   }
 
   setActive(moduleName) {
@@ -40,5 +21,4 @@ class DockManager {
   }
 }
 
-// Global instance
 window.DockManager = DockManager;

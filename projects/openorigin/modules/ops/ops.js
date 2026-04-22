@@ -1,15 +1,17 @@
-// Ops Module - Client Operations Command Center
 class OpsModule {
   constructor() {
     this.view = null;
     this.refreshInterval = null;
     this.sessionsCache = [];
     this.clientOpsData = null;
+    this.currentPage = 'dashboard';
   }
 
-  show() {
+  show(pageKey = 'dashboard') {
+    this.currentPage = pageKey;
     if (!this.view) this.render();
     this.view.classList.add('active');
+    this.updatePageVisibility();
     this.startAutoRefresh();
   }
 
@@ -25,7 +27,10 @@ class OpsModule {
   }
 
   stopAutoRefresh() {
-    if (this.refreshInterval) { clearInterval(this.refreshInterval); this.refreshInterval = null; }
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+    }
   }
 
   render() {
@@ -34,13 +39,35 @@ class OpsModule {
     this.view.id = 'opsView';
     this.view.innerHTML = `
       <div class="section-title">运营模块</div>
-      <div class="dashboard ops-dashboard">
-        ${this.renderClientOpsHeader()}
-        ${this.renderStageLanes()}
-        ${this.renderDeliverablesTable()}
-        ${this.renderOpsStats()}
-        ${this.renderSeatOverview()}
+
+      <div class="module-page ${this.currentPage === 'dashboard' ? 'active' : ''}" data-page="dashboard">
+        <div class="dashboard ops-dashboard">
+          ${this.renderClientOpsHeader()}
+          ${this.renderStageLanes()}
+          ${this.renderDeliverablesTable()}
+          ${this.renderOpsStats()}
+          ${this.renderSeatOverview()}
+        </div>
       </div>
+
+      <div class="module-page ${this.currentPage === 'tasks' ? 'active' : ''}" data-page="tasks">
+        <div class="dashboard ops-dashboard ops-tasks-dashboard">
+          <div class="panel stage-lanes-panel ops-page-full">
+            <div class="panel-header">
+              <i data-lucide="clipboard-check"></i>
+              任务管理
+            </div>
+            <div class="panel-body">
+              <div class="module-empty-copy">这里集中展示运营任务流转、优先级和阻塞项。当前已接入下方任务流程看板与交付追踪。</div>
+              <div class="tasks-page-stack">
+                ${this.renderStageLanes()}
+                ${this.renderDeliverablesTable()}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       ${this.renderSessionModal()}
     `;
     document.getElementById('mainContent').appendChild(this.view);
@@ -48,7 +75,12 @@ class OpsModule {
     if (window.lucide) window.lucide.createIcons();
   }
 
-  // ---- Sub-panel Renderers ----
+  updatePageVisibility() {
+    if (!this.view) return;
+    this.view.querySelectorAll('.module-page').forEach(page => {
+      page.classList.toggle('active', page.dataset.page === this.currentPage);
+    });
+  }
 
   renderClientOpsHeader() {
     return `
@@ -68,12 +100,12 @@ class OpsModule {
 
   renderStageLanes() {
     const stages = [
-      { key: 'intake',    label: '需求接收',   color: '#a78bfa' },
-      { key: 'scoping',   label: '范围界定',   color: '#818cf8' },
-      { key: 'execution', label: '执行中',     color: '#ffd89a' },
-      { key: 'review',   label: '审核',       color: '#a3e635' },
-      { key: 'delivered',label: '已交付',     color: '#06b6d4' },
-      { key: 'renewal',  label: '续约',       color: '#22c55e' }
+      { key: 'intake', label: '需求接收', color: '#a78bfa' },
+      { key: 'scoping', label: '范围界定', color: '#818cf8' },
+      { key: 'execution', label: '执行中', color: '#ffd89a' },
+      { key: 'review', label: '审核', color: '#a3e635' },
+      { key: 'delivered', label: '已交付', color: '#06b6d4' },
+      { key: 'renewal', label: '续约', color: '#22c55e' }
     ];
     return `
       <div class="panel stage-lanes-panel">
@@ -189,8 +221,6 @@ class OpsModule {
     `;
   }
 
-  // ---- Data Loading ----
-
   async refreshAll() {
     await Promise.all([this.loadClientOps(), this.loadSessions()]);
   }
@@ -206,7 +236,7 @@ class OpsModule {
       this.renderDeliverables(data.deliverables || []);
       this.renderOpsStats(data);
       this.renderSeats(data.seats || []);
-    } catch (e) { /* silent fail */ }
+    } catch (e) {}
   }
 
   renderClients(clients) {
@@ -225,10 +255,9 @@ class OpsModule {
   }
 
   renderStageLanesData(tasks) {
-    const stages = ['intake','scoping','execution','review','delivered','renewal'];
-    stages.forEach(stage => {
-      const lane = document.getElementById(`lane_${stage}`);
-      if (!lane) return;
+    const laneNodes = this.view?.querySelectorAll('[id^="lane_"]') || [];
+    laneNodes.forEach(lane => {
+      const stage = lane.id.replace('lane_', '');
       const filtered = tasks.filter(t => t.stage === stage);
       if (filtered.length === 0) {
         lane.innerHTML = '<div class="lane-empty">无任务</div>';
@@ -246,7 +275,7 @@ class OpsModule {
               <span class="task-priority-badge prio-${prio}">${prio}</span>
               <span class="task-due-date ${this.isDueSoon(t.dueDate) ? 'due-soon' : ''}">${this.esc(t.dueDate || '--')}</span>
             </div>
-            ${hasBlocker ? `<div class="task-blocker-tag">阻塞</div>` : ''}
+            ${hasBlocker ? '<div class="task-blocker-tag">阻塞</div>' : ''}
           </div>
         `;
       }).join('');
@@ -254,31 +283,32 @@ class OpsModule {
   }
 
   renderDeliverables(deliverables) {
-    const tbody = document.getElementById('deliverablesBody');
-    if (!tbody) return;
-    if (deliverables.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="mc-empty">无可交付成果</td></tr>';
-      return;
-    }
-    const SL = {
-      not_started: '未开始', drafting: '起草中',
-      in_review: '审核中', approved: '已批准',
-      delivered: '已交付', blocked: '被阻塞'
-    };
-    tbody.innerHTML = deliverables.map(d => {
-      const client = this.clientOpsData?.clients?.find(c => c.id === d.clientId);
-      const isOverdue = d.slaDate && new Date(d.slaDate) < new Date();
-      const isNear = this.isDueSoon(d.slaDate);
-      return `
-        <tr>
-          <td><span class="deliv-client">${this.esc(client?.name || d.clientId)}</span></td>
-          <td><span class="deliv-name">${this.esc(d.name)}</span></td>
-          <td><span class="deliv-owner">${this.esc(d.ownerId)}</span></td>
-          <td><span class="deliv-sla ${isOverdue ? 'sla-overdue' : isNear ? 'sla-near' : ''}">${this.esc(d.slaDate || '--')}</span></td>
-          <td><span class="deliv-status status-${d.status}">${SL[d.status] || d.status}</span></td>
-        </tr>
-      `;
-    }).join('');
+    const bodyNodes = this.view?.querySelectorAll('#deliverablesBody') || [];
+    bodyNodes.forEach(tbody => {
+      if (deliverables.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="mc-empty">无可交付成果</td></tr>';
+        return;
+      }
+      const SL = {
+        not_started: '未开始', drafting: '起草中',
+        in_review: '审核中', approved: '已批准',
+        delivered: '已交付', blocked: '被阻塞'
+      };
+      tbody.innerHTML = deliverables.map(d => {
+        const client = this.clientOpsData?.clients?.find(c => c.id === d.clientId);
+        const isOverdue = d.slaDate && new Date(d.slaDate) < new Date();
+        const isNear = this.isDueSoon(d.slaDate);
+        return `
+          <tr>
+            <td><span class="deliv-client">${this.esc(client?.name || d.clientId)}</span></td>
+            <td><span class="deliv-name">${this.esc(d.name)}</span></td>
+            <td><span class="deliv-owner">${this.esc(d.ownerId)}</span></td>
+            <td><span class="deliv-sla ${isOverdue ? 'sla-overdue' : isNear ? 'sla-near' : ''}">${this.esc(d.slaDate || '--')}</span></td>
+            <td><span class="deliv-status status-${d.status}">${SL[d.status] || d.status}</span></td>
+          </tr>
+        `;
+      }).join('');
+    });
   }
 
   renderOpsStats(data) {
@@ -288,15 +318,24 @@ class OpsModule {
     const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const ac = clients.filter(c => c.status === 'active').length;
-    const ds = tasks.filter(t => { if (!t.dueDate) return false; const d = new Date(t.dueDate); return d >= now && d <= weekEnd; }).length;
+    const ds = tasks.filter(t => {
+      if (!t.dueDate) return false;
+      const d = new Date(t.dueDate);
+      return d >= now && d <= weekEnd;
+    }).length;
     const hp = tasks.filter(t => t.priority === 'high' || t.priority === 'critical').length;
     const bl = tasks.filter(t => t.blockers && t.blockers.length > 0).length;
 
-    const s = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    s('statActiveClients', ac);
-    s('statTasksDueSoon', ds);
-    s('statHighPriority', hp);
-    s('statBlocked', bl);
+    const setText = (selector, val) => {
+      this.view?.querySelectorAll(selector).forEach(el => {
+        el.textContent = val;
+      });
+    };
+
+    setText('#statActiveClients', ac);
+    setText('#statTasksDueSoon', ds);
+    setText('#statHighPriority', hp);
+    setText('#statBlocked', bl);
   }
 
   renderSeats(seats) {
@@ -336,17 +375,19 @@ class OpsModule {
       const data = await resp.json();
       if (data.error) return;
       this.sessionsCache = data.sessions || [];
-    } catch (e) { /* silent */ }
+    } catch (e) {}
   }
-
-  // ---- Session Modal ----
 
   bindEvents() {
     const closeBtn = this.view.querySelector('#sessionModalClose');
     const backdrop = this.view.querySelector('#sessionModalBackdrop');
     if (closeBtn) closeBtn.addEventListener('click', () => this.closeSessionModal());
-    if (backdrop) backdrop.addEventListener('click', e => { if (e.target === backdrop) this.closeSessionModal(); });
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') this.closeSessionModal(); });
+    if (backdrop) backdrop.addEventListener('click', e => {
+      if (e.target === backdrop) this.closeSessionModal();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') this.closeSessionModal();
+    });
   }
 
   openSessionModal(session) {
@@ -374,8 +415,6 @@ class OpsModule {
     document.body.style.overflow = '';
   }
 
-  // ---- Utils ----
-
   formatAge(ms) {
     if (!ms) return 'unknown';
     const sec = Math.floor(ms / 1000);
@@ -392,7 +431,7 @@ class OpsModule {
   }
 
   esc(v) {
-    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 }
 
