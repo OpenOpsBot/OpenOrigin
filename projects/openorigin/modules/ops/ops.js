@@ -563,7 +563,7 @@ class OpsModule {
       name: `${item.provider || '?'} / ${item.model || '?'}`,
       statusText: item.sessionCount > 0 ? '活跃' : '空闲',
       statusClass: item.sessionCount > 0 ? 'coming-soon' : 'offline',
-      meta: `${item.sessionCount || 0} 个会话 · 上下文 ${item.contextTokens?.join(', ') || '未知'}`
+      meta: `${item.sessionCount || 0} 个会话 · 上下文 ${item.contextTokens?.join(', ') || '未知'} · 数据源 sessions.json`
     }));
   }
 
