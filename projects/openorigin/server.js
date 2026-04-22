@@ -19,6 +19,7 @@ const MIME_TYPES = {
 
 // ---- Client Ops Data (local JSON) ----
 const CLIENT_OPS_PATH = path.join(STATIC_DIR, 'data', 'client-ops-sample.json');
+const OPENCLAW_CONFIG_PATH = '/Users/ze/.openclaw/openclaw.json';
 
 function readClientOpsData() {
   try {
@@ -87,38 +88,42 @@ function getCronList() {
   });
 }
 
-function getModelsFromSessions() {
+function getConfiguredModels() {
   try {
-    const sessions = getSessionsFromFile();
-    if (sessions.error) return sessions;
-    const map = new Map();
-    (sessions.sessions || []).forEach(session => {
-      const key = `${session.modelProvider || '?'}:${session.model || '?'}`;
-      const existing = map.get(key) || {
-        id: key,
-        provider: session.modelProvider || '?',
-        model: session.model || '?',
-        sessionCount: 0,
-        lastActiveMs: 0,
-        contexts: new Set()
-      };
-      existing.sessionCount += 1;
-      existing.lastActiveMs = Math.max(existing.lastActiveMs, session.ageMs || 0);
-      if (session.contextTokens) existing.contexts.add(session.contextTokens);
-      map.set(key, existing);
-    });
-    return {
-      models: Array.from(map.values()).map(item => ({
-        id: item.id,
-        provider: item.provider,
-        model: item.model,
-        sessionCount: item.sessionCount,
-        latestAgeMs: item.lastActiveMs,
-        contextTokens: Array.from(item.contexts)
-      }))
+    const raw = fs.readFileSync(OPENCLAW_CONFIG_PATH, 'utf8');
+    const cfg = JSON.parse(raw);
+    const seen = new Set();
+    const models = [];
+
+    const pushRef = (ref) => {
+      if (!ref || typeof ref !== 'string' || seen.has(ref)) return;
+      seen.add(ref);
+      const [provider, ...rest] = ref.split('/');
+      models.push({ ref, provider, model: rest.join('/') || provider });
     };
+
+    Object.keys(cfg?.agents?.defaults?.models || {}).forEach(pushRef);
+
+    const primary = cfg?.agents?.defaults?.model?.primary;
+    if (typeof primary === 'string') pushRef(primary);
+
+    const fallbacks = cfg?.agents?.list || [];
+    fallbacks.forEach(agent => {
+      const model = agent?.model;
+      if (typeof model === 'string') pushRef(model);
+      if (typeof model?.primary === 'string') pushRef(model.primary);
+      (model?.fallbacks || []).forEach(pushRef);
+    });
+
+    Object.entries(cfg?.models?.providers || {}).forEach(([provider, providerCfg]) => {
+      (providerCfg?.models || []).forEach(entry => {
+        if (entry?.id) pushRef(`${provider}/${entry.id}`);
+      });
+    });
+
+    return { models, source: 'openclaw.json' };
   } catch (e) {
-    return { error: 'read_error', detail: e.message };
+    return { error: 'models_error', detail: e.message.slice(0, 200) };
   }
 }
 
@@ -152,7 +157,7 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (req.url === '/api/models') {
-    sendJson(getModelsFromSessions());
+    sendJson(getConfiguredModels());
     return;
   }
 

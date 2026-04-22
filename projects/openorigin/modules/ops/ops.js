@@ -559,12 +559,17 @@ class OpsModule {
 
   extractModels(data = {}) {
     if (!Array.isArray(data.models)) return [];
-    return data.models.map(item => ({
-      name: `${item.provider || '?'} / ${item.model || '?'}`,
-      statusText: item.sessionCount > 0 ? '活跃' : '空闲',
-      statusClass: item.sessionCount > 0 ? 'coming-soon' : 'offline',
-      meta: `${item.sessionCount || 0} 个会话 · 上下文 ${item.contextTokens?.join(', ') || '未知'} · 数据源 sessions.json`
-    }));
+    const activeRefs = new Set((this.sessionsCache || []).map(session => `${session.modelProvider || '?'} / ${session.model || '?'}`));
+    return data.models.map(item => {
+      const name = `${item.provider || '?'} / ${item.model || '?'}`;
+      const isActive = activeRefs.has(name);
+      return {
+        name,
+        statusText: isActive ? '活跃' : '已配置',
+        statusClass: isActive ? 'coming-soon' : 'offline',
+        meta: `${item.ref || name} · 数据源 models list`
+      };
+    });
   }
 
   renderActiveSessions(sessions = []) {
