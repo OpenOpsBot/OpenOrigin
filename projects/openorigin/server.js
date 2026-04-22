@@ -87,6 +87,41 @@ function getCronList() {
   });
 }
 
+function getModelsFromSessions() {
+  try {
+    const sessions = getSessionsFromFile();
+    if (sessions.error) return sessions;
+    const map = new Map();
+    (sessions.sessions || []).forEach(session => {
+      const key = `${session.modelProvider || '?'}:${session.model || '?'}`;
+      const existing = map.get(key) || {
+        id: key,
+        provider: session.modelProvider || '?',
+        model: session.model || '?',
+        sessionCount: 0,
+        lastActiveMs: 0,
+        contexts: new Set()
+      };
+      existing.sessionCount += 1;
+      existing.lastActiveMs = Math.max(existing.lastActiveMs, session.ageMs || 0);
+      if (session.contextTokens) existing.contexts.add(session.contextTokens);
+      map.set(key, existing);
+    });
+    return {
+      models: Array.from(map.values()).map(item => ({
+        id: item.id,
+        provider: item.provider,
+        model: item.model,
+        sessionCount: item.sessionCount,
+        latestAgeMs: item.lastActiveMs,
+        contextTokens: Array.from(item.contexts)
+      }))
+    };
+  } catch (e) {
+    return { error: 'read_error', detail: e.message };
+  }
+}
+
 // ---- HTTP Server ----
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -114,6 +149,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/api/client-ops') {
     sendJson(readClientOpsData());
+    return;
+  }
+  if (req.url === '/api/models') {
+    sendJson(getModelsFromSessions());
     return;
   }
 

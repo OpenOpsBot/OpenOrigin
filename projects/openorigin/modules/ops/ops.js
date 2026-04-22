@@ -241,6 +241,7 @@ class OpsModule {
       this.loadClientOps(),
       this.loadSessions(),
       this.loadHealth(),
+      this.loadModels(),
       this.loadCron()
     ]);
   }
@@ -413,10 +414,20 @@ class OpsModule {
       const resp = await fetch('/api/health');
       const data = await resp.json();
       this.healthData = data;
-      this.renderModels(data);
+      this.updateAlertSummary();
     } catch (e) {
       this.healthData = { error: 'load_error' };
-      this.renderModels(this.healthData);
+      this.updateAlertSummary();
+    }
+  }
+
+  async loadModels() {
+    try {
+      const resp = await fetch('/api/models');
+      const data = await resp.json();
+      this.renderModels(data);
+    } catch (e) {
+      this.renderModels({ error: 'load_error' });
     }
   }
 
@@ -547,46 +558,13 @@ class OpsModule {
   }
 
   extractModels(data = {}) {
-    const candidates = [];
-    const seen = new Set();
-    const pushCandidate = (name, statusText = '未知', meta = '') => {
-      if (!name) return;
-      const key = `${name}::${meta}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      candidates.push({
-        name,
-        statusText,
-        statusClass: statusText.includes('在线') || statusText.includes('正常') || statusText.includes('已连接') || statusText.includes('默认') ? 'coming-soon' : 'offline',
-        meta: meta || '真实运行信息待补充'
-      });
-    };
-
-    if (Array.isArray(data.channels)) {
-      data.channels.forEach(([name, info]) => {
-        pushCandidate(name, info?.running ? '在线' : '未运行', `${info?.configured ? '已配置' : '未配置'} · ${info?.tokenSource || '未知来源'}`);
-      });
-    }
-
-    if (data.channels && !Array.isArray(data.channels)) {
-      Object.entries(data.channels).forEach(([name, info]) => {
-        pushCandidate(name, info?.running ? '在线' : '未运行', `${info?.configured ? '已配置' : '未配置'} · ${info?.tokenSource || '未知来源'}`);
-      });
-    }
-
-    if (Array.isArray(data.models)) {
-      data.models.forEach(m => pushCandidate(m.name || m.id || m.model, m.status || m.state || '未知', m.provider || m.detail || ''));
-    }
-
-    if (data.model) {
-      pushCandidate(data.model, data.ok ? '正常' : '已连接', data.provider || '当前模型');
-    }
-
-    if (data.defaultModel) {
-      pushCandidate(data.defaultModel, '默认', data.defaultProvider || '默认模型');
-    }
-
-    return candidates.slice(0, 8);
+    if (!Array.isArray(data.models)) return [];
+    return data.models.map(item => ({
+      name: `${item.provider || '?'} / ${item.model || '?'}`,
+      statusText: item.sessionCount > 0 ? '活跃' : '空闲',
+      statusClass: item.sessionCount > 0 ? 'coming-soon' : 'offline',
+      meta: `${item.sessionCount || 0} 个会话 · 上下文 ${item.contextTokens?.join(', ') || '未知'}`
+    }));
   }
 
   renderActiveSessions(sessions = []) {
