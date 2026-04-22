@@ -4,6 +4,7 @@ class App {
     this.currentPage = null;
     this.modules = {};
     this.mainContent = document.getElementById('mainContent');
+    this.storageKey = 'openorigin:nav-state';
     this.modulePages = {
       ops: [
         { key: 'dashboard', label: '仪表盘' },
@@ -31,7 +32,10 @@ class App {
     if (window.TabManager) this.tabManager = new TabManager();
     if (window.DockManager) this.dockManager = new DockManager();
 
-    this.switchModule('ops');
+    const saved = this.loadNavState();
+    const initialModule = saved.module && this.modules[saved.module] ? saved.module : 'ops';
+    const initialPage = saved.page || null;
+    this.switchModule(initialModule, initialPage);
   }
 
   getPages(moduleName) {
@@ -67,6 +71,8 @@ class App {
     if (this.dockManager) {
       this.dockManager.setActive(moduleName);
     }
+
+    this.saveNavState();
   }
 
   switchPage(pageKey) {
@@ -81,6 +87,25 @@ class App {
 
     if (this.tabManager) {
       this.tabManager.setPageActive(targetPage);
+    }
+
+    this.saveNavState();
+  }
+
+  saveNavState() {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify({
+        module: this.currentModule,
+        page: this.currentPage
+      }));
+    } catch (e) {}
+  }
+
+  loadNavState() {
+    try {
+      return JSON.parse(localStorage.getItem(this.storageKey) || '{}');
+    } catch (e) {
+      return {};
     }
   }
 }
