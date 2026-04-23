@@ -1,48 +1,56 @@
 # SYSTEM-REFERENCE
 
 ## 今日变更
-- 导航层完成页签化改造，`index.html` 新增顶部 Tab Bar，`js/app.js` 与 `js/tabs.js` 现在按模块维护页面列表，并把模块 / 页面状态持久化到 `localStorage(openorigin:nav-state)`。
-- Ops 模块继续向监控式指挥台演进，当前已拆成 `仪表盘`、`指挥台`、`交付追踪` 3 个页面，并补上 Mission Summary、模型状态卡、活跃会话卡、定时任务卡和会话详情弹层。
-- `modules/brain/brain.js` 扩展为多页面骨架，新增 `每日简报`、`智能体`、`定时任务` 占位页面，供后续接入自动化与多智能体管理。
-- `server.js` 保持本地 8000 端口静态服务 + API 聚合架构，继续提供 `/api/health`、`/api/sessions`、`/api/cron`、`/api/client-ops`，并修复了静态资源在带 query string 请求下的解析。
-- `automation/logs/backup-private-repo.log` 显示 2026-04-22 全天每 2 小时均触发一次备份尝试，但都因 lock 已存在而跳过，说明“计划已触发 / 结果未完成”这一故障在持续。
-- 文档侧继续补强运营与组织规划说明，`docs/CLIENT-OPS-CENTER-PLAN.md`、`docs/ORG-PLANNING-WORKSHEET.md` 今日有更新；仓库里还出现了临时校验脚本 `tmp-openorigin-check.js`，用于 Playwright 页面检查。
+- Ops 模块今天继续围绕真实 OpenClaw 运行态做增强，`server.js` 已稳定提供 `/api/agents`、`/api/models`、`/api/session-history`，并让 `代理概览`、`模型`、`活跃会话`、`定时任务`、`会话详情弹层` 读取本机真实数据而不是纯演示卡片。
+- `modules/ops/ops.js` 近期连续迭代，当前把原先偏 Mission Control 的布局收敛成两页结构：`运营面板` + `指挥台`。其中指挥台已改成左侧导航、右侧详情的“每日简报”式界面，支持模型、活跃会话、定时任务、异常提醒四个分栏。
+- `modules/ops/ops.css` 今天仍在演进，新增了 Daily Briefing 壳层、简报卡片、异常态、会话详情弹层强化样式，说明 Ops 现在是项目最活跃的前端模块。
+- 顶部导航今天继续收口，`index.html`、`js/tabs.js`、`css/tabs.css` 已把旧的“模块 Tab + 页面 Tab”双层结构简化为只渲染当前模块页面页签；底部 Dock 继续承担模块切换。
+- `modules/brain/brain.js` 做了轻量清理，去掉冗余标题，保留 `仪表盘 / 每日简报 / 智能体 / 定时任务` 四页占位结构，方便后续接真实后端。
+- `automation/logs/backup-private-repo.log` 继续显示 4 月 23 日整天每两小时都有备份触发，但全部因为 `lock exists, skipping` 被跳过，备份链路故障仍未解除。
 
 ## 当前架构概览
-- `index.html`: OpenOrigin 单页入口，挂载顶部页签栏、主体内容区与底部 Dock，并按模块加载 `ops / brain / laboratory` 前端脚本。
-- `js/app.js`: 应用总控，负责模块注册、页面路由、默认落点、模块切换，以及本地导航状态持久化。
-- `js/tabs.js` + `js/dock.js`: 页签管理与底部模块切换层，前者按当前模块动态渲染子页面 Tab，后者负责模块级导航。
-- `server.js`: 本地 8000 端口静态服务与轻量 API 聚合层，读取 OpenClaw sessions 文件、调用 `openclaw health --json` 与 `openclaw cron list --json`，并暴露客户运营本地 JSON 数据。
-- `modules/ops`: 当前最活跃模块，包含客户工作台、任务流程泳道、交付追踪表、运营统计、坐席概览、Mission Control、会话详情弹层与 30 秒自动刷新逻辑。
-- `modules/brain`: 大脑模块骨架，现有能力概览、多模型演示卡、每日简报页、智能体页、定时任务页，仍以占位和布局验证为主。
-- `modules/laboratory`: AI 组织实验室，保留组织架构预览与组织规划内容，用于承接组织设计探索。
-- `data/`: 本地样例数据目录，当前以 `client-ops-sample.json` 支撑 Ops 模块演示。
-- `docs/`: 产品方案、组织规划、cron 自动化说明和系统参考文档。
-- `automation/`: cron 设计文档、提示脚本、备份脚本、安装提示脚本与运行日志。
+- `index.html`: 单页入口。顶部为当前模块页面页签栏，底部为模块 Dock，中间挂载各模块视图。
+- `js/app.js`: 前端总控。负责模块注册、页面定义、默认落点、模块切换、页面切换，以及 `localStorage(openorigin:nav-state)` 导航状态持久化。
+- `js/tabs.js` + `js/dock.js`: 轻导航层。顶部 Tabs 只展示当前模块页面，底部 Dock 负责 `ops / brain / laboratory` 三大模块切换。
+- `server.js`: 本地 8000 端口静态服务 + 轻量 API 聚合层。直接读取 `sessions.json`、`openclaw.json`、`IDENTITY.md`，并通过 CLI 聚合 `openclaw health --json` 与 `openclaw cron list --json`。
+- `modules/ops`: 当前主工作台。包含代理概览、任务流程、交付追踪、运营统计、渠道状态、每日简报式指挥台、会话详情弹层、30 秒自动刷新。
+- `modules/brain`: 大脑模块骨架。现阶段以能力概览和占位页为主，还没接入真实摘要、任务管理或多智能体编排数据。
+- `modules/laboratory`: 组织实验室。保留 AI 代理组织结构、组织规划调研表和创意库页面，用于承接组织设计与实验想法。
+- `data/`: 本地样例数据目录，目前仍主要由 `client-ops-sample.json` 支撑一部分演示内容。
+- `docs/`: 产品方案、API 规范、cron 自动化设计、系统参考等文档。
+- `automation/`: cron 提示文件、安装脚本、备份脚本与运行日志。
 
 ## 模块清单
-- Ops / 客户运营指挥中心
-- Ops / Mission Control（指挥台）
-- Ops / Deliverables Tracker（交付追踪）
-- Session Modal Viewer（会话详情弹层）
-- Brain / Dashboard（大脑能力概览）
-- Brain / Daily Briefing（占位页）
-- Brain / Agents（占位页）
-- Brain / Schedules（占位页）
-- Laboratory / AI 组织实验室
-- Local API Layer (`/api/health`, `/api/sessions`, `/api/cron`, `/api/client-ops`)
+- Ops / 运营面板
+- Ops / 指挥台（每日简报式控制台）
+- Ops / 会话详情弹层
+- Brain / 仪表盘
+- Brain / 每日简报（占位）
+- Brain / 智能体（占位）
+- Brain / 定时任务（占位）
+- Laboratory / 仪表盘（组织架构与规划）
+- Laboratory / 创意库
+- Local API Layer
+  - `/api/health`
+  - `/api/sessions`
+  - `/api/cron`
+  - `/api/agents`
+  - `/api/models`
+  - `/api/session-history`
+  - `/api/client-ops`
 
 ## 活跃定时任务
-- 从 OpenClaw CLI 可观测面看，当前仍无法确认任何已激活 cron job，因为 `openclaw cron list --json` 依旧受 pairing 限制。
-- 设计上已准备 4 个计划任务：`backup-private-repo`、`nightly-self-optimize`、`daily-briefing`、`system-reference-rollup`。
-- 其中 `backup-private-repo` 的日志显示应按“两小时一次”节奏触发，但持续因 lock 存在而跳过，说明计划链路可能存在外部触发或残留锁文件问题，尚未闭环。
-- `automation/scripts/install-crons.sh` 当前只提示先完成 `openclaw dashboard` pairing，再手动执行 `automation/docs/CRON-AUTOMATION.md` 中的安装命令。
+- 设计上仍维护 4 个目标 cron 任务：`backup-private-repo`、`nightly-self-optimize`、`daily-briefing`、`system-reference-rollup`。
+- `system-reference-rollup` 现已按提示执行文档滚动更新，职责是刷新本文件并把摘要写入当日 memory。
+- `backup-private-repo` 从日志看仍按两小时节奏被调起，4 月 23 日 `00:01` 到 `22:01` 均有触发记录，但全部被现存 lock 拦截。
+- `nightly-self-optimize` 与 `daily-briefing` 相关产出今天已体现在 `memory/2026-04-23.md`，说明隔离会话型文档任务在运行层面可工作。
+- 真实 cron 列表仍无法通过 `openclaw cron list --json` 稳定核验，因为本机 CLI 依旧受 gateway pairing 限制；OpenOrigin 前端里的定时任务卡片因此可能只能显示空态或受限结果。
 
 ## 已知问题
-- `openclaw cron add/list/run/status` 当前在本机 CLI 下仍受 gateway pairing 限制，导致自动化方案无法完成正式激活与核验。
-- `/api/cron` 依赖 `openclaw cron list --json`，在未配对状态下只能返回受限状态，Mission Control 中的定时任务卡片因此无法展示真实任务列表。
-- `backup-private-repo` 日志连续多次出现 `lock exists, skipping`，说明备份机制存在残留锁或上次执行未正确释放的问题。
-- Ops 模块当前仍依赖本地 JSON 样例数据，尚未实现任务 / 交付物写回、筛选器、负责人编辑以及客户级会话联动。
-- 会话详情弹层当前展示真实元数据摘要，但尚未接入完整上下文时间线、消息预览或运行轨迹。
-- Brain 模块仍以演示页和占位页为主，真实模型状态、每日简报数据源、智能体目录与定时任务管理都还没接上后端。
-- 仓库内存在临时校验脚本 `tmp-openorigin-check.js`，若长期保留会增加根目录噪音，后续应决定纳入正式测试流程还是清理掉。
+- `openclaw cron add/list/run/status` 仍受 gateway pairing 限制，导致 cron 无法完成正式安装后的可视化核验。
+- `/api/cron` 强依赖 `openclaw cron list --json`，未配对时只能返回错误或空结果，前端无法拿到真实任务列表。
+- `backup-private-repo` 长时间卡在 `lock exists, skipping`，是当前最明确、持续时间最长的自动化故障。
+- Ops 模块虽然已经接入真实 agents / sessions / models / health 数据，但部分视图仍是只读监控台，没有写回能力，也没有筛选、编辑、批量操作等运营动作。
+- 会话详情弹层已能读取最近消息，但仍只是轻量摘要，缺少完整时间线、工具调用轨迹、运行事件和更深入的诊断信息。
+- Brain 模块仍基本停留在占位阶段，真实的每日简报、智能体目录、任务调度管理尚未接后端。
+- 顶部 Tabs 今天仍在未提交整理中，`index.html`、`js/tabs.js`、`css/tabs.css`、`modules/brain/brain.js`、`modules/ops/ops.js`、`modules/ops/ops.css` 处于工作树修改状态，说明导航与 Ops 指挥台 UI 还在收口中。
