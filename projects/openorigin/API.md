@@ -107,6 +107,8 @@ Scheduled cron jobs from `openclaw cron list --json`.
 
 **Source:** `openclaw cron list --json` (CLI → JSON parse)
 
+**Current behavior note:** when CLI execution fails, the server currently returns `exec_error` with stderr details. It does not yet special-case gateway pairing failures into a dedicated `pairing_required` code.
+
 **Response**
 ```json
 {
@@ -135,17 +137,16 @@ Scheduled cron jobs from `openclaw cron list --json`.
 | `nextRun` | `string\|null` | ISO timestamp of next scheduled run |
 
 **Error codes**
-- `pairing_required` — Gateway not paired; run `openclaw pair`
-- `exec_error` — CLI execution failed
+- `exec_error` — CLI execution failed, including current gateway pairing failures
 - `parse_error` — CLI returned non-JSON
 
 ---
 
 ### `GET /api/agents`
 
-Configured agents from `openclaw agents list --json`.
+Configured agents synthesized from local config files.
 
-**Source:** `openclaw agents list --json` (CLI → JSON parse)
+**Source:** `~/.openclaw/openclaw.json` + `workspace/IDENTITY.md` (direct file reads, no CLI call)
 
 **Response**
 ```json
@@ -173,12 +174,11 @@ Configured agents from `openclaw agents list --json`.
 | `workspace` | `string` | Workspace directory path |
 | `model` | `string` | Primary model ref |
 | `isDefault` | `bool` | Is the default agent |
-| `providers` | `string[]` | Provider status lines |
-| `bindingCount` | `number` | Number of routing bindings |
+| `providers` | `string[]` | Provider status lines, currently returned as an empty placeholder array |
+| `bindingCount` | `number` | Number of routing bindings, currently returned as `0` placeholder data |
 
 **Error codes**
-- `agents_error` — CLI execution failed
-- `parse_error` — CLI returned non-JSON
+- `agents_error` — Config file read or parse failed
 
 ---
 
