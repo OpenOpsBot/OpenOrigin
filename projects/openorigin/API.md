@@ -155,11 +155,11 @@ Configured agents synthesized from local config files.
     {
       "id": "main",
       "name": "小猿",
-      "emoji": "🐵",
+      "emoji": "🐒",
       "workspace": "/Users/ze/.openclaw/workspace",
       "model": "openai-codex/gpt-5.4",
       "isDefault": true,
-      "providers": ["Telegram default: configured"],
+      "providers": [],
       "bindingCount": 0
     }
   ]
@@ -228,6 +228,47 @@ Configured models from `openclaw.json`.
 
 **Error codes**
 - `models_error` — Config read or parse error
+
+---
+
+### `GET /api/session-history?key=<sessionKey>`
+
+Session message history loaded from the backing JSONL session file for a known session.
+
+**Source:** `session.sessionFile` from `sessions.json` (direct file read)
+
+**Query params**
+- `key` — Required opaque session key from `/api/sessions`
+
+**Response**
+```json
+{
+  "history": [
+    {
+      "id": "msg_123",
+      "timestamp": 1776871442406,
+      "role": "user",
+      "content": "hello"
+    }
+  ],
+  "total": 1
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `history` | `object[]` | Parsed message entries from the session JSONL file |
+| `history[].id` | `string` | Event/message identifier |
+| `history[].timestamp` | `number` | Unix timestamp (ms) |
+| `history[].role` | `string` | Message role (`user` / `assistant` / ...) |
+| `history[].content` | `string` | Flattened text content |
+| `total` | `number` | Total parsed message count |
+
+**Error codes**
+- `missing_key` — Required `key` query param not provided
+- `session_not_found` — No session matched the supplied key
+- `not_found` — Session file path missing on disk
+- `read_error` — Session file could not be read
 
 ---
 
