@@ -82,12 +82,17 @@
 }
 
 /* ---- Daily Briefing ---- */
+.module-brain .dashboard.single-page-dashboard {
+  grid-template-columns: 1fr;
+}
+
 .brain-briefing-shell {
   display: grid;
   grid-template-columns: minmax(240px, 260px) minmax(0, 1fr);
   gap: 16px;
   min-height: 520px;
   align-items: start;
+  width: 100%;
 }
 
 .brain-briefing-master {
