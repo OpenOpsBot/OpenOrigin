@@ -80,3 +80,281 @@
   color: var(--text-secondary);
   line-height: 1.5;
 }
+
+/* ---- Daily Briefing ---- */
+.brain-briefing-shell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  min-height: 520px;
+}
+
+.brain-briefing-master {
+  border-radius: 18px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  overflow: hidden;
+}
+
+.brain-briefing-master .panel-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brain-briefing-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+}
+
+.brain-briefing-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.brain-briefing-nav-item:hover {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.1);
+}
+
+.brain-briefing-nav-item.active {
+  background: rgba(6,182,212,0.1);
+  border-color: rgba(6,182,212,0.3);
+}
+
+.brain-briefing-nav-item i {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.brain-briefing-nav-item.active i {
+  color: #8defff;
+}
+
+.brain-briefing-nav-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.brain-briefing-nav-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.brain-briefing-nav-item.active .brain-briefing-nav-label {
+  color: #8defff;
+}
+
+.brain-briefing-nav-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.brain-briefing-nav-item.active .brain-briefing-nav-value {
+  color: #8defff;
+}
+
+.brain-briefing-nav-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brain-briefing-detail {
+  display: none;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.brain-briefing-detail.active {
+  display: block;
+}
+
+.brain-briefing-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.brain-briefing-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brain-briefing-section-title i {
+  width: 16px;
+  height: 16px;
+  color: #8defff;
+}
+
+.brain-briefing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.brain-briefing-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: border-color 0.15s ease;
+}
+
+.brain-briefing-card:hover {
+  border-color: rgba(255,255,255,0.2);
+}
+
+.brain-briefing-card-danger {
+  border-color: rgba(255,95,87,0.24);
+}
+
+.brain-briefing-card-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(6,182,212,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brain-briefing-card-danger .brain-briefing-card-icon {
+  background: rgba(255,95,87,0.12);
+}
+
+.brain-briefing-card-icon i {
+  width: 16px;
+  height: 16px;
+  color: #8defff;
+}
+
+.brain-briefing-card-danger .brain-briefing-card-icon i {
+  color: #ff8a82;
+}
+
+.brain-briefing-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.brain-briefing-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #8defff;
+  margin-bottom: 4px;
+}
+
+.brain-briefing-card-danger .brain-briefing-card-name {
+  color: #ff8a82;
+}
+
+.brain-briefing-card-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.brain-briefing-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.brain-briefing-empty i {
+  width: 32px;
+  height: 32px;
+  color: var(--text-dim);
+}
+
+.brain-briefing-empty-ok i {
+  color: #9ef5bc;
+}
+
+.brain-briefing-prose {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.brain-briefing-prose p {
+  margin: 0 0 14px;
+}
+
+.brain-briefing-list {
+  margin: 0 0 16px;
+  padding-left: 18px;
+}
+
+.brain-briefing-list li + li {
+  margin-top: 8px;
+}
+
+.brain-briefing-markdown-preview {
+  margin: 0;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(8, 12, 20, 0.72);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #d9f7ff;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .brain-briefing-shell {
+    grid-template-columns: 1fr;
+  }
+  .brain-briefing-master {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .brain-briefing-nav {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .brain-briefing-nav-item {
+    min-width: 120px;
+  }
+}
