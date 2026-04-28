@@ -146,7 +146,7 @@ Scheduled cron jobs from `openclaw cron list --json`.
 
 Configured agents synthesized from local config files.
 
-**Source:** `~/.openclaw/openclaw.json` + `workspace/IDENTITY.md` (direct file reads, no CLI call)
+**Source:** `~/.openclaw/openclaw.json` + `~/.openclaw/workspace/IDENTITY.md` (direct file reads, no CLI call)
 
 **Response**
 ```json

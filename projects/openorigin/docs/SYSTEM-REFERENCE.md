@@ -15,7 +15,7 @@
 - `modules/ops`：运营工作台。`dashboard` 页负责代理概览、流程、交付追踪、运营统计和渠道状态；`tasks` 页是模型 / 会话 / 定时任务指挥台，并支持会话详情弹层与 Session History 查看。
 - `modules/brain`：大脑工作台。`daily-briefing` 已从静态说明页升级为读取 `memory/*.md` 的历史简报浏览器；`automations` 新增自动化任务总览，可展示任务计划、脚本预览、日志预览和阻塞状态；`agents / schedules` 仍是占位页。
 - `modules/laboratory`：实验室模块，仍以静态内容为主，用于承接创意与规划类页面。
-- `automation/`：脚本、安装器和日志目录。当前可见的核心脚本包括 `backup-private-repo.sh`、`daily-briefing.md`、`nightly-self-optimize.md`、`system-reference-rollup.md` 与 `install-crons.sh`。
+- `automation/`：脚本、安装器和日志目录。当前可见的核心脚本包括 `automation/scripts/backup-private-repo.sh`、`automation/scripts/daily-briefing.md`、`automation/scripts/nightly-self-optimize.md`、`automation/scripts/system-reference-rollup.md` 与 `automation/scripts/install-crons.sh`。
 - `package.json` + `tmp-openorigin-check.js`：本地验证层雏形，依赖 Playwright，意图是对页面打开、页签切换等关键路径做最小自动化巡检。
 
 ## 模块清单
@@ -75,4 +75,4 @@
 - Brain 的 `automations` 与 `daily-briefing` 页面已经可以展示较多真实数据，但 `agents`、`schedules` 仍是占位页，Brain 模块整体还没闭环。
 - Ops 的会话详情页已经能看 Session History，但目前仍偏只读：没有消息时间线筛选、工具调用轨迹、运行事件流或处置动作。
 - Playwright 校验脚本和依赖已经进入仓库目录，但还未纳入稳定的 npm script / CI 流程，而且目前是未跟踪文件，验证链路尚未正式落地。
-- 工作树仍有较多未提交改动（`index.html`、`tabs.css`、`tabs.js`、`modules/brain/*`、`modules/ops/*`、`server.js` 等），系统参考文档反映的是“当前工作树状态”，不等同于一个已整理完成的发布版本。
+- 工作树仍有较多未提交改动（`index.html`、`css/tabs.css`、`js/tabs.js`、`modules/brain/*`、`modules/ops/*`、`server.js` 等），系统参考文档反映的是“当前工作树状态”，不等同于一个已整理完成的发布版本。
