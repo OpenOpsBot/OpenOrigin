@@ -1,24 +1,35 @@
 # SYSTEM-REFERENCE
 
 ## 今日变更
-- 今日（2026-04-27）已有 3 个 git 提交，全部围绕 Brain 的“每日简报”页面布局收尾：`3751bd7`、`cd6cd66`、`1be600a`，重点是重做简报页结构并修正移动端与全宽布局。
-- 工作树里还有一批当日未提交改动，已从“只展示简报”继续推进到“系统信息可视化”：`js/app.js` 为 Brain 新增了 `automations` 页面页签；`modules/brain/brain.js` 新增自动化任务视图；`server.js` 新增 `/api/memory-briefings` 与 `/api/automations` 两个聚合接口。
-- Ops 指挥台也在当天继续增强：`modules/ops/ops.js` 已补上会话详情弹层、Session History 拉取与更细的会话上下文推断，说明页面已经从摘要监控向可钻取排障发展。
-- `package.json`、`package-lock.json`、`node_modules/` 与 `tmp-openorigin-check.js` 已出现在仓库目录，表明项目开始引入 Playwright 做本地页面巡检，但这部分目前仍是未跟踪状态。
-- `automation/logs/backup-private-repo.log` 今日仍持续报 `lock exists, skipping`；最新可见记录到 2026-04-27 22:04，备份任务卡锁的问题还没解除。
+- 今日（2026-04-28）共有 5 个 git 提交，核心是把 OpenOrigin 从“简报查看器”继续推到“系统操作台 + 系统知识库”：`3142ba7`、`5d62d7f`、`a7f77f6`、`09a44a6`、`2b40bfb`。
+- 最大的一次落地是 `3142ba7`：前端导航扩成 `ops / brain / laboratory` 三模块多页面结构；Brain 新增 `daily-briefing / automations / os-documentation` 真实数据页；`server.js` 补上 memory、自动化、系统文档三类聚合接口；仓库开始引入 `playwright` 依赖与本地巡检脚本雏形。
+- `2b40bfb` 继续补强 Ops：`modules/ops/ops.js` 与 `modules/ops/ops.css` 今天又做了一轮大更新，说明“指挥台”仍在快速迭代，重点放在布局、可视密度和任务面板体验上。
+- `5d62d7f` 与 `a7f77f6` 把自动化文档链路往稳定方向推了一步：修正文档路径引用，同时重写 `automation/scripts/backup-private-repo.sh` 的锁处理逻辑，加入 `pid + started_at + TTL` 的陈旧锁清理机制。
+- 运行状态也因此出现实质变化：`backup-private-repo` 今天 14:08 与 22:00 已成功提交并 push，旧的“长期 lock exists, skipping”阻塞不再是当前主问题；新的主问题转为多个 cron 任务持续超时。
 
 ## 当前架构概览
-- `index.html`：单页应用入口。页面结构仍是“顶部页签 + 中央模块视图 + 底部 Dock”的三层导航。
-- `js/app.js`：前端总控，管理 `ops / brain / laboratory` 三个模块，以及模块内页面切换与导航状态持久化。当前 Brain 已有 `dashboard / daily-briefing / automations / agents / schedules` 五个页面。
-- `js/tabs.js` + `js/dock.js`：轻导航层。`tabs.js` 负责当前模块的页面页签渲染，`dock.js` 负责跨模块切换。
-- `server.js`：本地 8000 端口静态服务 + 数据聚合层。除既有 `/api/health`、`/api/sessions`、`/api/cron`、`/api/agents`、`/api/models`、`/api/session-history`、`/api/client-ops` 外，现在还提供 `/api/memory-briefings` 与 `/api/automations`，把 memory 文件和 automation 脚本/日志整理成前端可消费的数据。
-- `modules/ops`：运营工作台。`dashboard` 页负责代理概览、流程、交付追踪、运营统计和渠道状态；`tasks` 页是模型 / 会话 / 定时任务指挥台，并支持会话详情弹层与 Session History 查看。
-- `modules/brain`：大脑工作台。`daily-briefing` 已从静态说明页升级为读取 `memory/*.md` 的历史简报浏览器；`automations` 新增自动化任务总览，可展示任务计划、脚本预览、日志预览和阻塞状态；`agents / schedules` 仍是占位页。
-- `modules/laboratory`：实验室模块，仍以静态内容为主，用于承接创意与规划类页面。
-- `automation/`：脚本、安装器和日志目录。当前可见的核心脚本包括 `automation/scripts/backup-private-repo.sh`、`automation/scripts/daily-briefing.md`、`automation/scripts/nightly-self-optimize.md`、`automation/scripts/system-reference-rollup.md` 与 `automation/scripts/install-crons.sh`。
-- `package.json` + `tmp-openorigin-check.js`：本地验证层雏形，依赖 Playwright，意图是对页面打开、页签切换等关键路径做最小自动化巡检。
+- `index.html`：单页应用入口，延续“顶部页签 + 中央模块视图 + 底部 Dock”结构。
+- `js/app.js`：前端总控，管理 `ops / brain / laboratory` 三模块，以及模块级页面切换与导航状态持久化。当前页面集合为：
+  - Ops：`org-chart / dashboard / tasks`
+  - Brain：`dashboard / daily-briefing / automations / os-documentation / agents / schedules`
+  - Laboratory：`dashboard / ideas`
+- `js/tabs.js` + `js/dock.js`：轻导航层；前者渲染当前模块页签，后者负责模块切换。
+- `server.js`：本地 8000 端口静态服务 + 数据聚合层。除常规状态接口外，当前还负责：
+  - 读取 `memory/*.md` 并整理为 `/api/memory-briefings`
+  - 读取自动化脚本 / 日志 / `openclaw cron list --json` 并整理为 `/api/automations`
+  - 读取 `docs/SYSTEM-REFERENCE.md` 并整理为 `/api/system-reference`
+- `modules/ops`：运营工作台。已覆盖团队页、运营面板、指挥台三块；指挥台持续承接模型、会话、定时任务和异常摘要。
+- `modules/brain`：知识与自动化工作台。当前最成熟的是真实数据页：
+  - `daily-briefing`：读取 `memory/` 历史简报
+  - `automations`：读取自动化定义、cron 状态、脚本预览、日志摘要
+  - `os-documentation`：直接把 `docs/SYSTEM-REFERENCE.md` 渲染为知识库式阅读页
+- `modules/laboratory`：仍以静态内容为主，用于承接实验性想法与规划页面。
+- `automation/`：自动化脚本与日志目录。当前核心脚本为 `automation/scripts/backup-private-repo.sh`、`automation/scripts/daily-briefing.md`、`automation/scripts/nightly-self-optimize.md`、`automation/scripts/system-reference-rollup.md`。
+- `package.json` + `package-lock.json` + `tmp-openorigin-check.js`：本地验证层雏形。目前只有 `start` / 空壳 `test` script，Playwright 已安装但还没被正式串进稳定校验流程。
 
 ## 模块清单
+- Ops / 团队
+  - 组织结构页（`org-chart`）
 - Ops / 运营面板
   - 代理概览
   - 任务流程
@@ -26,12 +37,14 @@
   - 运营仪表盘
   - 渠道状态
 - Ops / 指挥台
-  - 摘要卡（模型 / 活跃会话 / 定时任务 / 异常提醒）
+  - 模型摘要卡
+  - 活跃会话摘要卡
+  - 定时任务摘要卡
+  - 异常提醒摘要卡
   - 模型面板
   - 活跃会话面板
   - 定时任务面板
-  - 会话详情弹层
-  - Session History 查看
+  - 会话详情弹层 / Session History
 - Brain / 仪表盘
 - Brain / 每日简报
   - 历史简报列表
@@ -43,6 +56,11 @@
   - 计划 / 最近执行 / 下次执行元数据
   - 脚本预览
   - 日志预览
+- Brain / 系统文档
+  - `SYSTEM-REFERENCE` 章节目录
+  - 自动化摘要侧栏
+  - 风险提示卡
+  - 原始 Markdown 预览
 - Brain / 智能体（占位）
 - Brain / 定时任务（占位）
 - Laboratory / 仪表盘
@@ -57,22 +75,23 @@
   - `/api/client-ops`
   - `/api/memory-briefings`
   - `/api/automations`
+  - `/api/system-reference`
 
 ## 活跃定时任务
-- 当前系统仍围绕 4 个核心 cron 设计：`backup-private-repo`、`nightly-self-optimize`、`daily-briefing`、`system-reference-rollup`。
-- 从 `server.js` 内置的自动化定义看，计划时间分别是：
-  - `backup-private-repo`：每 2 小时
-  - `nightly-self-optimize`：每天 02:15
-  - `daily-briefing`：每天 08:30
-  - `system-reference-rollup`：每天 23:20
-- Brain 新增的“自动化”页面会优先展示上述 4 个核心任务，并尝试结合脚本文件、日志文件和 `openclaw cron list --json` 返回值做状态汇总。
-- `backup-private-repo` 依然是当前最明显的异常任务：4 月 27 日多次触发仍然全部因 `lock exists, skipping` 被跳过。
-- `system-reference-rollup` 的职责保持不变：每日收口系统文档，并把摘要写入 `memory/YYYY-MM-DD.md`。
+- 当前共有 4 个核心 cron 任务，且 `openclaw cron list --json` 显示它们都处于 enabled 状态：
+  - `backup-private-repo`：`0 */2 * * *`（Asia/Shanghai，带 `staggerMs: 300000`）
+  - `nightly-self-optimize`：`15 2 * * *`
+  - `daily-briefing`：`30 8 * * *`
+  - `system-reference-rollup`：`20 23 * * *`
+- `backup-private-repo`：当前是 4 个任务里最健康的一个。cron 状态显示最近一次运行成功；日志尾部也显示 2026-04-28 14:08 与 22:00 均已成功提交并 push，其余触发在无改动时会正常输出 `no changes, nothing to back up`。
+- `nightly-self-optimize`：已启用，但最近状态仍为 error；cron 记录显示已连续 9 次因 `timeout` 失败。
+- `daily-briefing`：已启用，但最近状态同样为 error；cron 记录显示已连续 9 次因 `timeout` 失败。
+- `system-reference-rollup`：已启用；本次文档更新执行时该任务正在运行，但在此之前 cron 记录里已连续 8 次 timeout，说明夜间文档收口链路仍不稳定。
 
 ## 已知问题
-- `openclaw cron list --json` 仍可能受 gateway pairing 限制影响；一旦取不到数据，`/api/cron` 和 `/api/automations` 只能回退到“脚本存在 + 日志摘要”的弱感知模式。
-- `backup-private-repo` 长时间被锁文件阻塞，今天仍未恢复，是当前自动化链路里最持续的故障。
-- Brain 的 `automations` 与 `daily-briefing` 页面已经可以展示较多真实数据，但 `agents`、`schedules` 仍是占位页，Brain 模块整体还没闭环。
-- Ops 的会话详情页已经能看 Session History，但目前仍偏只读：没有消息时间线筛选、工具调用轨迹、运行事件流或处置动作。
-- Playwright 校验脚本和依赖已经进入仓库目录，但还未纳入稳定的 npm script / CI 流程，而且目前是未跟踪文件，验证链路尚未正式落地。
-- 工作树仍有较多未提交改动（`index.html`、`css/tabs.css`、`js/tabs.js`、`modules/brain/*`、`modules/ops/*`、`server.js` 等），系统参考文档反映的是“当前工作树状态”，不等同于一个已整理完成的发布版本。
+- 当前自动化主故障已从“备份锁死”切换为“多个隔离 agent cron 持续超时”：`nightly-self-optimize`、`daily-briefing`、`system-reference-rollup` 的最近状态都在报 `timeout`，这是现在最值得优先排查的系统级问题。
+- `backup-private-repo` 的锁机制今天已改成带 TTL 的目录锁，现有日志看起来恢复正常；但旧问题刚被修复不久，还需要继续观察未来几轮执行，确认不会再次卡死。
+- Brain 的三个真实数据页已经成型，但 `agents`、`schedules` 仍是占位页，Brain 模块还没完全闭环。
+- Ops 指挥台在快速迭代，但当前仍偏“观察台”：缺少更细的运行事件流、任务处置动作和真正的写操作闭环。
+- Playwright 依赖已经进仓，但 `package.json` 仍只有空壳 `test`，验证能力还没被产品化；前端改动暂时仍主要依赖人工查看与临时脚本。
+- 自动备份提交日志里仍出现 Git committer identity 的默认提示，虽然不阻塞 push，但说明这台机器的 git 用户信息还没整理干净。
