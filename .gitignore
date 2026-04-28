@@ -1,0 +1,4 @@
+.locks/
+projects/openorigin/automation/logs/*.log
+projects/openorigin/node_modules/
+projects/openorigin/tmp-openorigin-check.js

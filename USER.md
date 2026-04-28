@@ -4,7 +4,7 @@
 - **What to call them:** 老板
 - **Pronouns:** _(待补充)_
 - **Timezone:** Asia/Shanghai（GMT+8）
-- **Notes:** 偏好直接、少废话；默认能动手就动手，危险操作先确认。
+- **Notes:** 偏好直接、少废话；默认能动手就动手，危险操作先确认；前端/项目改动默认先测试，再运行。
 
 ## Context
 

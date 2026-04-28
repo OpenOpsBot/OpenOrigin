@@ -21,6 +21,42 @@ const MIME_TYPES = {
 const CLIENT_OPS_PATH = path.join(STATIC_DIR, 'data', 'client-ops-sample.json');
 const OPENCLAW_CONFIG_PATH = '/Users/ze/.openclaw/openclaw.json';
 const IDENTITY_PATH = '/Users/ze/.openclaw/workspace/IDENTITY.md';
+const MEMORY_DIR = '/Users/ze/.openclaw/workspace/memory';
+const AUTOMATION_DIR = path.join(STATIC_DIR, 'automation');
+const SYSTEM_REFERENCE_PATH = path.join(STATIC_DIR, 'docs', 'SYSTEM-REFERENCE.md');
+
+const runtimeCache = {
+  cron: { value: null, expiresAt: 0, inflight: null },
+  automations: { value: null, expiresAt: 0, inflight: null },
+  systemReference: { value: null, expiresAt: 0, inflight: null }
+};
+
+async function withCache(key, ttlMs, loader) {
+  const bucket = runtimeCache[key];
+  const now = Date.now();
+  if (bucket?.value && bucket.expiresAt > now) return bucket.value;
+  if (bucket?.inflight) return bucket.inflight;
+
+  const task = Promise.resolve()
+    .then(loader)
+    .then(result => {
+      if (bucket) {
+        bucket.value = result;
+        bucket.expiresAt = Date.now() + ttlMs;
+      }
+      return result;
+    })
+    .catch(error => {
+      if (bucket?.value) return bucket.value;
+      throw error;
+    })
+    .finally(() => {
+      if (bucket) bucket.inflight = null;
+    });
+
+  if (bucket) bucket.inflight = task;
+  return task;
+}
 
 function readClientOpsData() {
   try {
@@ -28,6 +64,354 @@ function readClientOpsData() {
   } catch (e) {
     return { error: 'read_error', detail: e.message };
   }
+}
+
+function stripMarkdownLine(line = '') {
+  return String(line)
+    .replace(/^[-*]\s+/, '')
+    .replace(/^>\s?/, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .trim();
+}
+
+function splitSections(markdown = '', level = 3) {
+  const lines = String(markdown).split(/\r?\n/);
+  const sections = [];
+  let current = null;
+  const regex = new RegExp(`^#{${level}}\\s+(.+)$`);
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const heading = line.match(regex);
+    if (heading) {
+      current = { heading: heading[1].trim(), lines: [] };
+      sections.push(current);
+      continue;
+    }
+    if (!current) continue;
+    current.lines.push(rawLine);
+  }
+
+  return sections;
+}
+
+function normalizeBriefingSections(sections = []) {
+  const bucketMap = [
+    { key: 'priorities', match: /今日优先级|优先级/ },
+    { key: 'nightly', match: /夜间活动|昨夜动态|夜间/ },
+    { key: 'todos', match: /待处理事项|待处理|后续事项/ },
+    { key: 'attention', match: /需要老板关注|老板关注|需要关注/ }
+  ];
+
+  const normalized = {
+    priorities: [],
+    nightly: [],
+    todos: [],
+    attention: []
+  };
+
+  for (const section of sections) {
+    const bucket = bucketMap.find(item => item.match.test(section.heading));
+    if (!bucket) continue;
+    const items = section.lines
+      .map(line => stripMarkdownLine(line))
+      .filter(Boolean);
+    normalized[bucket.key].push(...items);
+  }
+
+  return normalized;
+}
+
+function extractDailyBriefingBlock(content = '') {
+  const match = String(content).match(/(^|\n)##\s+每日简报\s*\n([\s\S]*?)(?=\n##\s+|$)/);
+  return match ? match[2].trim() : '';
+}
+
+function getFallbackSummary(content = '') {
+  const lines = String(content)
+    .split(/\r?\n/)
+    .map(line => stripMarkdownLine(line))
+    .filter(Boolean)
+    .filter(line => !/^#+\s*/.test(line))
+    .filter(line => !/^session key:/i.test(line))
+    .filter(line => !/^session id:/i.test(line))
+    .filter(line => !/^source:/i.test(line))
+    .filter(line => !/^conversation summary/i.test(line))
+    .filter(line => !/^session:/i.test(line))
+    .filter(line => !/^(assistant|user|system):\s*$/i.test(line))
+    .filter(line => !/^(assistant|user|system):\s*sender/i.test(line))
+    .filter(line => !/^\{.*\}$/i.test(line))
+    .filter(line => !/^\[.*\]$/i.test(line))
+    .filter(line => !/^```/.test(line))
+    .filter(line => !/^(json|markdown|text)$/i.test(line))
+    .filter(line => !/^[{}\[\]",:]+$/.test(line))
+    .filter(line => !/^".+":\s*/.test(line));
+
+  const preferred = lines.find(line => /[\u4e00-\u9fa5]/.test(line) && line.length >= 8);
+  return preferred || lines[0] || '暂无足够数据';
+}
+
+function formatBriefingTitle(fileName, date) {
+  const suffix = fileName
+    .replace(/\.md$/, '')
+    .replace(/^\d{4}-\d{2}-\d{2}-?/, '')
+    .trim();
+
+  if (!suffix) return `每日简报 — ${date}`;
+
+  const label = suffix
+    .split('-')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' · ');
+
+  return `${date} · ${label}`;
+}
+
+function readMemoryBriefings() {
+  try {
+    const files = fs.readdirSync(MEMORY_DIR)
+      .filter(name => /^\d{4}-\d{2}-\d{2}.*\.md$/.test(name))
+      .sort((a, b) => b.localeCompare(a, 'en'));
+
+    const entries = files.map(fileName => {
+      const fullPath = path.join(MEMORY_DIR, fileName);
+      const content = fs.readFileSync(fullPath, 'utf8');
+      const briefBlock = extractDailyBriefingBlock(content);
+      const sectionSource = briefBlock || content;
+      const sections = splitSections(sectionSource);
+      const normalized = normalizeBriefingSections(sections);
+      const allItems = Object.values(normalized).flat();
+      const date = (fileName.match(/^(\d{4}-\d{2}-\d{2})/) || [])[1] || fileName.replace(/\.md$/, '');
+      const summary = allItems[0] || getFallbackSummary(sectionSource);
+
+      return {
+        fileName,
+        path: fullPath,
+        date,
+        title: formatBriefingTitle(fileName, date),
+        hasDailyBriefing: !!briefBlock,
+        summary,
+        sections: normalized,
+        rawBriefing: briefBlock,
+        rawContent: content
+      };
+    });
+
+    return {
+      entries,
+      total: entries.length,
+      source: MEMORY_DIR
+    };
+  } catch (e) {
+    return { error: 'memory_read_error', detail: e.message };
+  }
+}
+
+function readTextSafe(filePath) {
+  try {
+    return fs.readFileSync(filePath, 'utf8');
+  } catch (e) {
+    return '';
+  }
+}
+
+function tailLines(filePath, count = 10) {
+  const text = readTextSafe(filePath);
+  if (!text) return [];
+  return text.split(/\r?\n/).filter(Boolean).slice(-count);
+}
+
+function headLines(filePath, count = 20) {
+  const text = readTextSafe(filePath);
+  if (!text) return [];
+  return text.split(/\r?\n/).slice(0, count);
+}
+
+function formatScheduleDescriptor(schedule) {
+  if (!schedule) return '未配置';
+  if (schedule.kind === 'cron') return schedule.expr || 'cron';
+  if (schedule.kind === 'every') return schedule.value ? `每 ${schedule.value}` : '循环';
+  if (schedule.kind === 'at') return schedule.at || '单次';
+  return schedule.expr || schedule.kind || '未知';
+}
+
+function parseMarkdownBulletTree(lines = []) {
+  const root = [];
+  const stack = [];
+
+  for (const rawLine of lines) {
+    const match = String(rawLine).match(/^(\s*)[-*]\s+(.+)$/);
+    if (!match) continue;
+    const indent = match[1].replace(/\t/g, '    ').length;
+    const node = {
+      text: stripMarkdownLine(match[2]),
+      children: []
+    };
+
+    while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
+
+    if (!stack.length) root.push(node);
+    else stack[stack.length - 1].node.children.push(node);
+
+    stack.push({ indent, node });
+  }
+
+  return root;
+}
+
+function readSystemReferenceRaw() {
+  try {
+    const raw = fs.readFileSync(SYSTEM_REFERENCE_PATH, 'utf8');
+    const stat = fs.statSync(SYSTEM_REFERENCE_PATH);
+    const title = (raw.match(/^#\s+(.+)$/m) || [])[1] || 'SYSTEM-REFERENCE';
+    const sections = splitSections(raw, 2).map(section => ({
+      heading: section.heading,
+      items: section.lines
+        .map(line => stripMarkdownLine(line))
+        .filter(Boolean),
+      tree: parseMarkdownBulletTree(section.lines),
+      raw: section.lines.join('\n').trim()
+    }));
+
+    return {
+      title,
+      path: SYSTEM_REFERENCE_PATH,
+      updatedAt: stat.mtime.toISOString(),
+      updatedAtMs: stat.mtimeMs,
+      sections,
+      raw
+    };
+  } catch (e) {
+    return { error: 'system_reference_read_error', detail: e.message };
+  }
+}
+
+function readSystemReference() {
+  return withCache('systemReference', 5000, () => readSystemReferenceRaw());
+}
+
+function getAutomationDefinitions() {
+  return [
+    {
+      name: 'backup-private-repo',
+      title: '私有仓库备份',
+      kind: 'shell + cron',
+      scheduleText: '每 2 小时',
+      purpose: '暂存改动、生成提交并 push 到私有 GitHub。',
+      output: '备份日志 / Git 提交',
+      scriptPath: path.join(AUTOMATION_DIR, 'scripts', 'backup-private-repo.sh'),
+      logPath: path.join(AUTOMATION_DIR, 'logs', 'backup-private-repo.log')
+    },
+    {
+      name: 'nightly-self-optimize',
+      title: '夜间自我优化',
+      kind: 'isolated agent',
+      scheduleText: '每天 02:15',
+      purpose: '每晚只审计一个领域，做低风险修复。',
+      output: '写入 memory / 可选 git 提交',
+      scriptPath: path.join(AUTOMATION_DIR, 'scripts', 'nightly-self-optimize.md')
+    },
+    {
+      name: 'daily-briefing',
+      title: '每日简报',
+      kind: 'isolated agent',
+      scheduleText: '每天 08:30',
+      purpose: '生成中文 Markdown 每日简报。',
+      output: '写入 memory/YYYY-MM-DD.md',
+      scriptPath: path.join(AUTOMATION_DIR, 'scripts', 'daily-briefing.md')
+    },
+    {
+      name: 'system-reference-rollup',
+      title: '系统文档滚动更新',
+      kind: 'isolated agent',
+      scheduleText: '每天 23:20',
+      purpose: '刷新 docs/SYSTEM-REFERENCE.md 当日状态。',
+      output: '更新 SYSTEM-REFERENCE.md',
+      scriptPath: path.join(AUTOMATION_DIR, 'scripts', 'system-reference-rollup.md')
+    }
+  ];
+}
+
+function summarizeBackupLog(logPath) {
+  const lines = tailLines(logPath, 12);
+  const joined = lines.join('\n');
+  const lastStart = [...lines].reverse().find(line => line.includes('start backup-private-repo')) || null;
+  let status = 'unknown';
+  let summary = '暂无日志';
+
+  if (/lock exists, skipping/i.test(joined)) {
+    status = 'blocked';
+    summary = '最近多次触发，但都被 lock 文件拦住。';
+  } else if (/failed/i.test(joined) || /ALERT:/i.test(joined)) {
+    status = 'error';
+    summary = '最近一次备份失败。';
+  } else if (/push complete|backup complete|success/i.test(joined)) {
+    status = 'ok';
+    summary = '最近一次备份看起来成功。';
+  }
+
+  return { status, summary, lastStart, tail: lines };
+}
+
+async function getAutomationsOverviewRaw() {
+  const definitions = getAutomationDefinitions();
+  const cronData = await getCronList();
+  const cronJobs = Array.isArray(cronData?.jobs) ? cronData.jobs : [];
+  const cronError = cronData?.error ? cronData.detail || cronData.error : null;
+
+  const items = definitions.map(item => {
+    const job = cronJobs.find(job => job.name === item.name) || null;
+    const base = {
+      ...item,
+      configured: fs.existsSync(item.scriptPath),
+      logExists: item.logPath ? fs.existsSync(item.logPath) : false,
+      scriptPreview: headLines(item.scriptPath, 40),
+      logPreview: item.logPath ? tailLines(item.logPath, 20) : [],
+      cron: job ? {
+        enabled: !!job.enabled,
+        scheduleText: formatScheduleDescriptor(job.schedule),
+        nextRun: job.nextRun || null,
+        lastRun: job.lastRun || null,
+        state: job.state || null
+      } : null,
+      status: job?.enabled ? 'ready' : 'pending',
+      statusText: job?.enabled ? '已配置' : '待激活',
+      runtimeSummary: job?.enabled
+        ? `下次执行 ${job.nextRun ? new Date(job.nextRun).toLocaleString('zh-CN', { hour12: false }) : '待定'}`
+        : (cronError ? 'cron 状态暂时拿不到' : '还没在 cron 里确认到'),
+      blocker: cronError || null
+    };
+
+    if (item.name === 'backup-private-repo' && item.logPath) {
+      const backup = summarizeBackupLog(item.logPath);
+      base.backupLog = backup;
+      base.status = backup.status === 'blocked' ? 'blocked' : backup.status === 'error' ? 'error' : base.status;
+      base.statusText = backup.status === 'blocked' ? '被锁阻塞' : backup.status === 'error' ? '执行异常' : base.statusText;
+      base.runtimeSummary = backup.summary || base.runtimeSummary;
+    }
+
+    if (job?.lastRun?.status && ['failed', 'error'].includes(job.lastRun.status)) {
+      base.status = 'error';
+      base.statusText = '最近失败';
+    }
+
+    return base;
+  });
+
+  return {
+    items,
+    total: items.length,
+    cronError,
+    source: AUTOMATION_DIR,
+    generatedAt: new Date().toISOString()
+  };
+}
+
+function getAutomationsOverview() {
+  return withCache('automations', 60000, () => getAutomationsOverviewRaw());
 }
 
 // ---- OpenClaw Real Data APIs ----
@@ -198,9 +582,9 @@ function readSessionHistory(sessionFile) {
   }
 }
 
-function getCronList() {
+function getCronListRaw() {
   return new Promise((resolve) => {
-    exec('openclaw cron list --json', { timeout: 8000 }, (err, stdout, stderr) => {
+    exec('openclaw cron list --json', { timeout: 2500 }, (err, stdout, stderr) => {
       if (err) {
         const detail = (stderr || err.message || '').slice(0, 200);
         resolve({ error: 'exec_error', detail });
@@ -230,13 +614,18 @@ function getCronList() {
           offset: parsed.offset ?? 0,
           limit: parsed.limit ?? jobs.length,
           hasMore: !!parsed.hasMore,
-          nextOffset: parsed.nextOffset ?? null
+          nextOffset: parsed.nextOffset ?? null,
+          generatedAt: new Date().toISOString()
         });
       } catch (e) {
         resolve({ error: 'parse_error', detail: (stdout || '').slice(0, 200) });
       }
     });
   });
+}
+
+function getCronList() {
+  return withCache('cron', 60000, () => getCronListRaw());
 }
 
 // ---- HTTP Server ----
@@ -276,6 +665,18 @@ const server = http.createServer((req, res) => {
     sendJson(getConfiguredModels());
     return;
   }
+  if (req.url === '/api/memory-briefings') {
+    sendJson(readMemoryBriefings());
+    return;
+  }
+  if (req.url === '/api/automations') {
+    getAutomationsOverview().then(data => sendJson(data)).catch(err => sendJson({ error: 'automation_error', detail: err.message }, 500));
+    return;
+  }
+  if (req.url === '/api/system-reference') {
+    readSystemReference().then(data => sendJson(data)).catch(err => sendJson({ error: 'system_reference_error', detail: err.message }, 500));
+    return;
+  }
   if (req.url.startsWith('/api/session-history?')) {
     const key = new URL(req.url, 'http://localhost').searchParams.get('key');
     if (!key) { sendJson({ error: 'missing_key' }, 400); return; }
@@ -305,4 +706,6 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log(`OpenOrigin running at http://localhost:${PORT}`);
+  getAutomationsOverview().catch(() => {});
+  readSystemReference().catch(() => {});
 });

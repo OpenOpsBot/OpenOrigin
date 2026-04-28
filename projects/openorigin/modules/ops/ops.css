@@ -753,6 +753,12 @@
   gap: 18px;
 }
 
+.session-modal .modal-body {
+  height: calc(100% - 73px);
+  overflow-y: auto;
+  padding: 20px 22px 24px;
+}
+
 .session-detail-hero {
   padding: 18px;
   border-radius: 18px;
@@ -768,6 +774,15 @@
 .session-detail-hero.is-danger {
   border-color: rgba(255, 95, 87, 0.28);
   box-shadow: inset 0 0 18px rgba(255, 95, 87, 0.08), 0 0 24px rgba(255, 95, 87, 0.1);
+}
+
+.session-detail-hero.is-warn {
+  border-color: rgba(245, 158, 11, 0.26);
+  box-shadow: inset 0 0 18px rgba(245, 158, 11, 0.08), 0 0 24px rgba(245, 158, 11, 0.08);
+}
+
+.session-detail-hero.is-dim {
+  border-color: rgba(255,255,255,0.12);
 }
 
 .session-detail-hero-top {
@@ -813,6 +828,13 @@
   line-height: 1.35;
 }
 
+.session-detail-subtitle {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
 .session-detail-state {
   height: fit-content;
   padding: 6px 10px;
@@ -831,10 +853,114 @@
   background: rgba(255, 95, 87, 0.12);
 }
 
-.session-detail-hero-meta {
+.session-detail-state.is-warn {
+  color: #ffd89a;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.session-detail-state.is-dim {
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.06);
+}
+
+.session-detail-hero-meta,
+.session-hero-meta {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+}
+
+.detail-card-group {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.detail-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.detail-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.session-history-title-row {
+  margin-bottom: 0;
+}
+
+.detail-section-meta {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.session-history-toggle {
+  flex-shrink: 0;
+}
+
+.session-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.session-history-item {
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.session-history-item.role-user {
+  border-color: rgba(6,182,212,0.24);
+}
+
+.session-history-item.role-assistant {
+  border-color: rgba(245,158,11,0.22);
+}
+
+.session-history-item.role-system,
+.session-history-item.role-tool {
+  border-color: rgba(168,85,247,0.22);
+}
+
+.session-history-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.session-history-role {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.session-history-time {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.session-history-content {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .session-detail-meta-chip {
@@ -896,6 +1022,7 @@
 .detail-subvalue {
   font-size: 11px;
   color: var(--text-secondary);
+  line-height: 1.6;
 }
 
 @media (max-width: 900px) {
@@ -905,6 +1032,11 @@
   .mission-grid,
   .session-detail-hero-meta,
   .session-detail-grid { grid-template-columns: 1fr; }
+
+  .detail-section-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 /* ---- Agent Cards ---- */
