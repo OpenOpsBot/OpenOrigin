@@ -7,6 +7,7 @@ class App {
     this.storageKey = 'openorigin:nav-state';
     this.modulePages = {
       ops: [
+        { key: 'org-chart', label: '团队' },
         { key: 'dashboard', label: '运营面板' },
         { key: 'tasks', label: '指挥台' }
       ],

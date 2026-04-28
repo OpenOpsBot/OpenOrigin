@@ -6,13 +6,13 @@ class OpsModule {
     this.healthData = null;
     this.cronData = null;
     this.modelsData = null;
-    this.currentPage = 'dashboard';
+    this.currentPage = 'org-chart';
     this.sessionHistoryExpanded = false;
     this.sessionHistoryItems = [];
     this.currentSessionModalKey = null;
   }
 
-  show(pageKey = 'dashboard') {
+  show(pageKey = 'org-chart') {
     this.currentPage = pageKey;
     if (!this.view) this.render();
     this.view.classList.add('active');
@@ -134,6 +134,12 @@ class OpsModule {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div class="module-page ${this.currentPage === 'org-chart' ? 'active' : ''}" data-page="org-chart">
+        <div class="dashboard single-page-dashboard ops-org-dashboard">
+          ${this.renderOrgChartPage()}
         </div>
       </div>
     `;
@@ -271,6 +277,171 @@ class OpsModule {
         </div>
       </div>
     `;
+  }
+
+  renderOrgChartPage() {
+    const chart = this.getOrgChartPrototype();
+    return `
+      <div class="panel org-chart-panel">
+        <div class="panel-header org-chart-panel-header">
+          <div class="org-chart-panel-title">
+            <i data-lucide="network"></i>
+            组织架构图
+          </div>
+          <div class="org-chart-header-stats">
+            <div class="org-chart-stat compact">
+              <strong>${chart.leads.length}</strong>
+              <span>主智能体列</span>
+            </div>
+            <div class="org-chart-stat compact">
+              <strong>${chart.leads.reduce((sum, lead) => sum + lead.children.length, 0)}</strong>
+              <span>子智能体占位</span>
+            </div>
+            <div class="org-chart-stat compact phase">
+              <strong>Phase 01</strong>
+              <span>纯视觉占位</span>
+            </div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="org-chart-hero">
+            <div class="org-chart-hero-main">
+              <div class="org-chart-eyebrow">运营模块 · 团队原型</div>
+              <h2 class="org-chart-title">先把未来的 AI 团队摆上台面</h2>
+              <p class="org-chart-copy">先把层级、委派关系和未来要拆出去的工作位画清楚。现在只做视觉骨架，不接真实逻辑，方便接下来几周继续讨论该创建哪些主智能体、哪些子智能体，以及哪些任务适合独立 OpenClaw 工作区。</p>
+            </div>
+          </div>
+
+          <div class="org-chart-canvas">
+          <div class="org-chart-stage">
+            <div class="org-chart-root human">
+              <div class="org-node node-human node-xl">
+                <div class="org-node-kicker">顶层决策者</div>
+                <div class="org-node-title">老板 · 人类用户</div>
+                <div class="org-node-meta">目标设定 / 关键判断 / 最终拍板</div>
+              </div>
+            </div>
+
+            <div class="org-connector vertical"></div>
+
+            <div class="org-chart-root chief">
+              <div class="org-node node-chief node-lg">
+                <div class="org-node-kicker">中枢协调</div>
+                <div class="org-node-title">最强智能体 · 小猿</div>
+                <div class="org-node-meta">统一理解上下文，分派任务，回收结果，替老板兜底</div>
+              </div>
+            </div>
+
+            <div class="org-connector trunk"></div>
+
+            <div class="org-chart-leads">
+              ${chart.leads.map((lead, index) => `
+                <section class="org-column tone-${lead.tone}">
+                  <div class="org-column-connector"></div>
+                  <div class="org-node node-lead">
+                    <div class="org-node-top">
+                      <span class="org-node-icon">${lead.icon}</span>
+                      <span class="org-node-badge">主智能体 ${index + 1}</span>
+                    </div>
+                    <div class="org-node-title">${this.esc(lead.title)}</div>
+                    <div class="org-node-meta">${this.esc(lead.meta)}</div>
+                    <div class="org-node-note">${this.esc(lead.note)}</div>
+                  </div>
+
+                  <div class="org-subtree">
+                    <div class="org-subtree-label">下属智能体</div>
+                    ${lead.children.map((child, childIndex) => `
+                      <div class="org-child-item">
+                        <span class="org-child-order">${String(childIndex + 1).padStart(2, '0')}</span>
+                        <span class="org-child-icon">${child.icon}</span>
+                        <span class="org-child-name">${this.esc(child.title)}</span>
+                        <span class="org-child-tag">${this.esc(child.tag)}</span>
+                        <span class="org-child-meta">${this.esc(child.meta)}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </section>
+              `).join('')}
+            </div>
+          </div>
+          </div>
+
+          <div class="org-chart-notes">
+            <div class="org-note-card">
+              <div class="org-note-title">这版先解决什么</div>
+              <ul>
+                <li>把未来几周可能落地的智能体分层展示出来</li>
+                <li>先看清哪些工作适合主智能体，哪些适合下沉给子智能体</li>
+                <li>为第三期的独立工作区规划提前留骨架</li>
+              </ul>
+            </div>
+            <div class="org-note-card">
+              <div class="org-note-title">当前刻意不做</div>
+              <ul>
+                <li>不接真实数据</li>
+                <li>不做拖拽、编辑、权限、状态联动</li>
+                <li>不锁死智能体数量，后面可增减列数</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  getOrgChartPrototype() {
+    return {
+      leads: [
+        {
+          title: '运营指挥官',
+          icon: '🎯',
+          tone: 'amber',
+          meta: '盯目标、排优先级、推节奏，负责把杂乱事项收口成可执行任务。',
+          note: '适合后续承接跨渠道运营、进度同步、异常升级。',
+          children: [
+            { title: '渠道运营', icon: '📣', tag: '执行位', meta: '负责渠道动作、发布节奏、反馈回收。' },
+            { title: '任务分发', icon: '🧭', tag: '调度位', meta: '把需求切成工单，派发给对应智能体。' },
+            { title: '风险哨兵', icon: '🚨', tag: '监控位', meta: '盯超时、失败、阻塞和异常提醒。' }
+          ]
+        },
+        {
+          title: '产品策划',
+          icon: '🧩',
+          tone: 'violet',
+          meta: '负责需求拆解、原型草图、版本节奏和路线图沉淀。',
+          note: '适合后续承接 PRD、信息架构、迭代规划。',
+          children: [
+            { title: '原型设计', icon: '🖼️', tag: '设计位', meta: '快速产出页面骨架、流程草图和交互方向。' },
+            { title: '需求整理', icon: '📝', tag: '分析位', meta: '把对话里的想法收成明确需求条目。' },
+            { title: '测试陪练', icon: '🧪', tag: '验证位', meta: '提前设计验收点，帮你收回归风险。' }
+          ]
+        },
+        {
+          title: '自动化管家',
+          icon: '⚙️',
+          tone: 'emerald',
+          meta: '围绕 cron、备份、流程编排和任务可靠性做持续维护。',
+          note: '适合后续承接 OpenClaw 定时任务、脚本守护、工作流自动化。',
+          children: [
+            { title: '定时任务维护', icon: '⏰', tag: '运维位', meta: '维护 daily / nightly / rollup / backup 链路。' },
+            { title: '备份守护', icon: '🗂️', tag: '稳定性', meta: '盯住锁、提交、推送和仓库清洁度。' },
+            { title: '流程编排', icon: '🔗', tag: '工作流', meta: '把多步骤任务拆成可复用自动化模板。' }
+          ]
+        },
+        {
+          title: '知识中枢',
+          icon: '🧠',
+          tone: 'cyan',
+          meta: '管理文档、记忆、系统参考和长期上下文的一致性。',
+          note: '适合后续承接知识库维护、系统文档刷新、记忆提炼。',
+          children: [
+            { title: '文档维护', icon: '📚', tag: '知识位', meta: '同步 API、系统文档、流程文档。' },
+            { title: '记忆整理', icon: '🗃️', tag: '沉淀位', meta: '把日常记录提炼成长期可用记忆。' },
+            { title: '情报检索', icon: '🔎', tag: '支持位', meta: '为其他智能体提供背景、资料和定位线索。' }
+          ]
+        }
+      ]
+    };
   }
 
   // ---- Data loaders ----
