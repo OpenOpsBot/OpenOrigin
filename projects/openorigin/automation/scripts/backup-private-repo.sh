@@ -81,10 +81,11 @@ if [[ -z "$(git status --porcelain 2>/dev/null)" ]]; then
 fi
 
 git add -A
-changed_lines=(${(@f)$(git status --short)})
+changed_lines=(${(@f)$(git diff --cached --name-only)})
 changed_files=()
-for line in "${changed_lines[@]}"; do
-  changed_files+=("${line#?? }")
+for file in "${changed_lines[@]}"; do
+  [[ -z "$file" ]] && continue
+  changed_files+=("$file")
   (( ${#changed_files[@]} >= 20 )) && break
 done
 CHANGED_FILES="${(j:,:)changed_files}"
