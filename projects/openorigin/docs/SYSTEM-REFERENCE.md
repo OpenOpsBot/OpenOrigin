@@ -5,7 +5,7 @@
 - 昨夜完成的 `docs(system): refresh daily system reference` 仍是最近一次系统文档收口提交；今天这次更新主要是在没有新前端结构变更的前提下，刷新运行状态、cron 健康度与已知风险。
 - 运行层面出现了一个重要变化：`daily-briefing` 与 `system-reference-rollup` 当前都已恢复到 `lastStatus: ok`，昨天文档里提到的“3 个 cron 持续 timeout”已缩窄为 `nightly-self-optimize` 单点故障。
 - `backup-private-repo` 今天继续稳定运行，多轮触发都正常输出 `no changes, nothing to back up`；22:00 轮次同样成功结束，说明 TTL 锁修复后的主流程暂时稳定。
-- 但备份脚本日志里今天 10:03 仍出现过一次 `/Users/ze/.openclaw/workspace/projects/openorigin/automation/scripts/backup-private-repo.sh: line 30: print: command not found`，虽然没有导致任务失败，但说明锁文件写入实现仍有 shell 兼容性毛刺，不能算彻底收尾。
+- 备份脚本日志里今天 10:03 曾出现过一次 `/Users/ze/.openclaw/workspace/projects/openorigin/automation/scripts/backup-private-repo.sh: line 30: print: command not found`；本轮夜间审计已将锁文件写入从 `print` 改为更稳的 `printf`，后续只需观察下一轮实际运行是否彻底清零此类日志。
 
 ## 当前架构概览
 - `index.html`：单页应用入口，延续“顶部页签 + 中央模块视图 + 底部 Dock”布局。
@@ -83,14 +83,14 @@
   - `nightly-self-optimize`：`15 2 * * *`
   - `daily-briefing`：`30 8 * * *`
   - `system-reference-rollup`：`20 23 * * *`
-- `backup-private-repo`：当前状态健康。最近一次运行成功，今天大部分触发都正常输出 `no changes, nothing to back up`；备份锁不再表现出长期卡死，但日志里仍出现过一次 `print: command not found` 的兼容性错误。
+- `backup-private-repo`：当前状态健康。最近一次运行成功，今天大部分触发都正常输出 `no changes, nothing to back up`；备份锁不再表现出长期卡死。本轮已顺手修掉锁文件写入使用 `print` 的兼容性毛刺，等待下一次定时运行验证。
 - `nightly-self-optimize`：当前 4 个任务里唯一持续异常的任务。最近状态仍为 error，已连续 10 次因 `timeout` 失败，是现在最明确的自动化主故障。
 - `daily-briefing`：已恢复正常。当前 `lastStatus: ok`、`consecutiveErrors: 0`，最近一次运行已成功投递，不再延续昨天的 timeout 连败状态。
 - `system-reference-rollup`：已恢复正常。上一轮 `lastStatus: ok`、`lastDeliveryStatus: delivered`，且本次 23:20 任务正在运行中，说明这条文档收口链路至少已恢复到可持续执行状态。
 
 ## 已知问题
 - `nightly-self-optimize` 仍连续 10 次 timeout；相比昨天，系统级问题已经收缩，但这个夜间审计链路仍是当前最优先的稳定性风险。
-- `backup-private-repo.sh` 的 TTL 锁机制总体已恢复正常，但脚本中用于写锁文件的 `print` 在实际运行日志里触发过 `command not found`；这说明当前实现对执行 shell 的假设并不稳，需要补掉兼容性问题。
+- `backup-private-repo.sh` 的 TTL 锁机制总体已恢复正常；历史日志里出现过一次 `print: command not found`，本轮已改为 `printf`。剩余工作不是继续改代码，而是确认下一次实际 cron 运行后该错误不再复现。
 - Brain 模块的 `agents`、`schedules` 仍是占位页，知识 / 自动化工作台还没有完全闭环。
 - Ops 指挥台已经能汇总模型、会话、cron 与异常摘要，但仍偏“观察台”；缺少更细粒度的运行事件流、处置动作和写操作闭环。
 - `package.json` 里的 `test` 仍是占位失败命令，Playwright 虽然已安装，但前端验证能力还没有被产品化。

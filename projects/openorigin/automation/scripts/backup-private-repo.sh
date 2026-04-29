@@ -27,7 +27,7 @@ cleanup_lock() {
 
 acquire_lock() {
   if mkdir "$LOCK_DIR" 2>/dev/null; then
-    print -r -- "$$" > "$LOCK_PID_FILE"
+    printf '%s\n' "$$" > "$LOCK_PID_FILE"
     date +%s > "$LOCK_TIME_FILE"
     return 0
   fi
@@ -52,7 +52,7 @@ acquire_lock() {
   rm -rf "$LOCK_DIR"
 
   if mkdir "$LOCK_DIR" 2>/dev/null; then
-    print -r -- "$$" > "$LOCK_PID_FILE"
+    printf '%s\n' "$$" > "$LOCK_PID_FILE"
     date +%s > "$LOCK_TIME_FILE"
     return 0
   fi
