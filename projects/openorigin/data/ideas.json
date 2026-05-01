@@ -1,0 +1,135 @@
+{
+  "ideas": [
+    {
+      "id": "idea-001",
+      "title": "智能会议纪要生成器",
+      "summary": "接入日历和录音，自动生成结构化会议纪要并提取待办事项",
+      "date": "2026-05-01",
+      "track": "A",
+      "category": "效率工具",
+      "ratings": {
+        "painPoint": 4.5,
+        "devSpeed": 3.0,
+        "commercial": 3.5,
+        "aiAdvantage": 4.8
+      },
+      "overallScore": 3.9,
+      "description": "打通日历和录音，自动转写、摘要、提取行动项，减少人工整理时间。"
+    },
+    {
+      "id": "idea-002",
+      "title": "客户流失预警系统",
+      "summary": "基于行为数据预测高流失风险客户，提前触发运营干预",
+      "date": "2026-04-30",
+      "track": "A",
+      "category": "数据产品",
+      "ratings": {
+        "painPoint": 4.8,
+        "devSpeed": 2.5,
+        "commercial": 4.2,
+        "aiAdvantage": 4.3
+      },
+      "overallScore": 3.9,
+      "description": "用行为特征构建流失预测模型，输出风险名单和干预建议。"
+    },
+    {
+      "id": "idea-003",
+      "title": "社群内容自动分发",
+      "summary": "一篇原稿自动适配多平台风格发布",
+      "date": "2026-04-29",
+      "track": "B",
+      "category": "内容运营",
+      "ratings": {
+        "painPoint": 3.8,
+        "devSpeed": 4.2,
+        "commercial": 3.0,
+        "aiAdvantage": 4.0
+      },
+      "overallScore": 3.8,
+      "description": "输入一篇通用稿件，AI 改写成不同平台（小红书/抖音/微博）的风格。"
+    },
+    {
+      "id": "idea-004",
+      "title": "智能选品助手",
+      "summary": "整合电商平台数据，辅助选品决策",
+      "date": "2026-04-28",
+      "track": "A",
+      "category": "电商运营",
+      "ratings": {
+        "painPoint": 4.3,
+        "devSpeed": 2.8,
+        "commercial": 4.5,
+        "aiAdvantage": 3.9
+      },
+      "overallScore": 3.8,
+      "description": "聚合平台公开数据（销量/评价/趋势），给出选品建议和风险提示。"
+    },
+    {
+      "id": "idea-005",
+      "title": "简历智能筛选",
+      "summary": "根据岗位要求自动打分和排序候选人简历",
+      "date": "2026-04-27",
+      "track": "B",
+      "category": "人力资源",
+      "ratings": {
+        "painPoint": 4.0,
+        "devSpeed": 3.5,
+        "commercial": 3.2,
+        "aiAdvantage": 4.4
+      },
+      "overallScore": 3.8,
+      "description": "上传 JD 和简历包，输出匹配度排序和关键标签对比。"
+    },
+    {
+      "id": "idea-006",
+      "title": "内部知识库问答",
+      "summary": "基于机构私有知识库的自然语言问答",
+      "date": "2026-05-02",
+      "track": "A",
+      "category": "效率工具",
+      "ratings": {
+        "painPoint": 4.7,
+        "devSpeed": 3.2,
+        "commercial": 3.8,
+        "aiAdvantage": 4.9
+      },
+      "overallScore": 4.2,
+      "description": "接入机构文档和 SOP，用 RAG 方式支持自然语言内部咨询。"
+    },
+    {
+      "id": "idea-007",
+      "title": "营销话术生成库",
+      "summary": "按行业、场景、客群标签生成营销话术",
+      "date": "2026-04-26",
+      "track": "B",
+      "category": "内容运营",
+      "ratings": {
+        "painPoint": 3.5,
+        "devSpeed": 4.5,
+        "commercial": 3.0,
+        "aiAdvantage": 4.2
+      },
+      "overallScore": 3.6,
+      "description": "结构化话术库，支持按条件筛选和 A/B 测试版本生成。"
+    },
+    {
+      "id": "idea-008",
+      "title": "竞品功能追踪",
+      "summary": "追踪竞品更新日志，结构化记录并推送",
+      "date": "2026-04-25",
+      "track": "A",
+      "category": "数据产品",
+      "ratings": {
+        "painPoint": 3.9,
+        "devSpeed": 3.0,
+        "commercial": 3.5,
+        "aiAdvantage": 4.0
+      },
+      "overallScore": 3.5,
+      "description": "定期爬取竞品更新页面，生成结构化变更日志和订阅推送。"
+    }
+  ],
+  "meta": {
+    "updatedAt": "2026-05-02T00:20:00+08:00"
+  }
+}

@@ -246,6 +246,132 @@ function readMemoryFile(fileName) {
   }
 }
 
+const PROTOTYPES_FILE = path.join(STATIC_DIR, 'data/prototypes.json');
+const IDEAS_FILE = path.join(STATIC_DIR, 'data/ideas.json');
+const RESEARCH_DIR = '/Users/ze/research';
+
+function readPrototypes() {
+  try {
+    if (!fs.existsSync(PROTOTYPES_FILE)) return { error: 'not_found' };
+    const raw = fs.readFileSync(PROTOTYPES_FILE, 'utf8');
+    const data = JSON.parse(raw);
+    const running = (data.prototypes || []).filter(p => p.status === 'running').length;
+    const stopped = (data.prototypes || []).filter(p => p.status === 'stopped').length;
+    return { entries: data.prototypes || [], running, stopped, total: (data.prototypes || []).length, meta: data.meta };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+function readIdeas() {
+  try {
+    if (!fs.existsSync(IDEAS_FILE)) return { error: 'not_found' };
+    const raw = fs.readFileSync(IDEAS_FILE, 'utf8');
+    const data = JSON.parse(raw);
+    return { entries: data.ideas || [], meta: data.meta };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+function listResearch() {
+  try {
+    if (!fs.existsSync(RESEARCH_DIR)) return { entries: [], error: 'not_found' };
+    const files = fs.readdirSync(RESEARCH_DIR)
+      .filter(f => f.endsWith('.md'))
+      .sort((a, b) => b.localeCompare(a));
+    const entries = files.map(name => {
+      const fullPath = path.join(RESEARCH_DIR, name);
+      const stat = fs.statSync(fullPath);
+      const content = fs.readFileSync(fullPath, 'utf8');
+      // Extract title from first # heading
+      const titleMatch = content.match(/^#\s+(.+)$/m);
+      const title = titleMatch ? titleMatch[1] : name.replace('.md', '');
+      // Extract date from filename
+      const dateMatch = name.match(/^(\d{4}-\d{2}-\d{2})/);
+      const date = dateMatch ? dateMatch[1] : stat.mtime.toISOString().slice(0, 10);
+      // Extract key findings count (lines starting with ## or numbered items)
+      const findings = (content.match(/^##\s+.+$/gm) || []).length;
+      return { name, title, date, findings, path: fullPath, mtime: stat.mtime.toISOString() };
+    });
+    return { entries, total: entries.length };
+  } catch (e) {
+    return { entries: [], error: e.message };
+  }
+}
+
+const SKILL_BUILTIN_DIR = '/opt/homebrew/lib/node_modules/openclaw/skills';
+const SKILL_USER_DIR = '/Users/ze/.openclaw/skills';
+
+function inferSkillCategory(name) {
+  const map = {
+    'Apple生态': ['apple-notes', 'apple-reminders'],
+    '开发工具': ['github', 'gh-issues', 'gifgrep', 'vscode'],
+    '任务流': ['taskflow', 'taskflow-inbox-triage'],
+    '系统维护': ['healthcheck'],
+    '网络': ['node-connect'],
+    '消息': ['discord', 'slack', 'wacli', 'imsg'],
+    '开发': ['coding-agent', 'skill-creator', 'session-logs'],
+    '数据': ['notion', 'obsidian', 'bear-notes', 'onenote'],
+    '多媒体': ['openai-whisper', 'openai-whisper-api', 'songsee', 'sag', 'video-frames'],
+    '设备控制': ['blucli', 'openhue', 'sonoscli', 'eightctl', 'gog', 'spotify-player', 'camsnap'],
+    '资讯': ['blogwatcher'],
+    '效率': ['summarize', 'model-usage', 'nano-pdf', 'tmux'],
+    '其他': []
+  };
+  for (const [cat, names] of Object.entries(map)) {
+    if (names.some(n => name.startsWith(n))) return cat;
+  }
+  // Fallback by prefix
+  if (name.startsWith('apple-')) return 'Apple生态';
+  if (name.startsWith('gh-')) return '开发工具';
+  if (name.startsWith('openai-')) return '多媒体';
+  return '其他';
+}
+
+function parseSkillFrontmatter(content) {
+  const nameMatch = content.match(/^name:\s*(.+)$/m);
+  const descMatch = content.match(/^description:\s*(.+)$/m);
+  return {
+    name: nameMatch ? nameMatch[1].trim() : '',
+    description: descMatch ? descMatch[1].trim() : ''
+  };
+}
+
+function listSkills() {
+  const dirs = [
+    { dir: SKILL_BUILTIN_DIR, source: 'builtin' },
+    { dir: SKILL_USER_DIR, source: 'custom' }
+  ];
+  const entries = [];
+  for (const { dir, source } of dirs) {
+    try {
+      if (!fs.existsSync(dir)) continue;
+      const subDirs = fs.readdirSync(dir).filter(sub => {
+        try { return fs.statSync(path.join(dir, sub)).isDirectory(); }
+        catch { return false; }
+      });
+      for (const sub of subDirs) {
+        const fullPath = path.join(dir, sub, 'SKILL.md');
+        if (!fs.existsSync(fullPath)) continue;
+        const content = fs.readFileSync(fullPath, 'utf8');
+        const { name, description } = parseSkillFrontmatter(content);
+        const skillName = name || sub;
+        const category = inferSkillCategory(skillName);
+        entries.push({
+          id: skillName,
+          name: skillName,
+          description: description || '暂无描述',
+          source,
+          category,
+          path: fullPath
+        });
+      }
+    } catch (e) { /* skip bad dirs */ }
+  }
+  return { entries, total: entries.length };
+}
+
 function readTextSafe(filePath) {
   try {
     return fs.readFileSync(filePath, 'utf8');
@@ -751,6 +877,18 @@ const server = http.createServer((req, res) => {
     sendJson(getEventsFromSessions());
     return;
   }
+  if (req.url === '/api/prototypes') {
+    sendJson(readPrototypes());
+    return;
+  }
+  if (req.url === '/api/ideas') {
+    sendJson(readIdeas());
+    return;
+  }
+  if (req.url === '/api/research') {
+    sendJson(listResearch());
+    return;
+  }
   if (req.url === '/api/cron') {
     getCronList().then(data => sendJson(data)).catch(() => sendJson({ error: 'server_error' }, 500));
     return;
@@ -773,6 +911,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/api/memory-files') {
     sendJson(listMemoryFiles());
+    return;
+  }
+  if (req.url === '/api/skills') {
+    sendJson(listSkills());
     return;
   }
   if (req.url.startsWith('/api/memory-file?')) {

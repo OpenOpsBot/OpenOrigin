@@ -20,6 +20,7 @@ class BrainModule {
     if (pageKey === 'os-documentation') this.refreshSystemReference();
     if (pageKey === 'data-analysis') this.refreshDataAnalysis();
     if (pageKey === 'memory-viewer') this.refreshMemoryViewer();
+    if (pageKey === 'skills-catalog') this.refreshSkillsCatalog();
     if (pageKey === 'dashboard') this.refreshDashboard();
   }
 
@@ -923,6 +924,86 @@ class BrainModule {
     return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
   }
 
+  async refreshSkillsCatalog() {
+    const tableEl = this.view?.querySelector('#brainSkillsTable');
+    const countEl = this.view?.querySelector('#brainSkillsCount');
+    const tabsEl = this.view?.querySelector('#brainSkillsTabs');
+    if (!tableEl) return;
+
+    tableEl.innerHTML = '<div class="brain-skills-loading">加载中...</div>';
+
+    try {
+      const res = await fetch('/api/skills');
+      if (!res.ok) throw new Error('加载失败');
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const allSkills = data.entries || [];
+
+      const renderTable = (skills) => {
+        if (!skills.length) {
+          tableEl.innerHTML = '<div class="brain-skills-loading">暂无技能</div>';
+          return;
+        }
+        tableEl.innerHTML = `
+          <table class="brain-skills-tbl">
+            <thead>
+              <tr>
+                <th>技能名称</th>
+                <th>描述</th>
+                <th>来源</th>
+                <th>部门</th>
+                <th>引用智能体</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${skills.map(s => {
+                const sourceLabel = s.source === 'builtin' ? '内置' : '自定义';
+                const sourceClass = s.source === 'builtin' ? 'is-builtin' : 'is-custom';
+                return `
+                  <tr class="brain-skill-row">
+                    <td class="brain-skill-td-name">${this.esc(s.name)}</td>
+                    <td class="brain-skill-td-desc">${this.esc(s.description)}</td>
+                    <td><span class="brain-skill-source ${sourceClass}">${sourceLabel}</span></td>
+                    <td><span class="brain-skill-cat">${this.esc(s.category)}</span></td>
+                    <td>
+                      <span class="brain-skill-agent">
+                        <i data-lucide="bot"></i>
+                        <span>main</span>
+                      </span>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        `;
+      };
+
+      // Initial render
+      renderTable(allSkills);
+      if (countEl) countEl.textContent = `共 ${allSkills.length} 个技能`;
+
+      // Tab filtering
+      if (tabsEl) {
+        tabsEl.querySelectorAll('.brain-skills-tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            tabsEl.querySelectorAll('.brain-skills-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const filter = tab.dataset.filter;
+            const filtered = filter === 'all' ? allSkills : allSkills.filter(s => s.source === filter);
+            renderTable(filtered);
+          });
+        });
+      }
+
+      if (window.lucide) window.lucide.createIcons();
+    } catch (error) {
+      tableEl.innerHTML = `<div class="brain-skills-loading">加载失败：${this.esc(error.message)}</div>`;
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
   esc(str) {
     if (str == null) return '';
     const div = document.createElement('div');
@@ -1109,6 +1190,28 @@ class BrainModule {
               <div id="brainMemoryPreviewContent" style="display:none"></div>
             </div>
           </section>
+        </div>
+      </div>
+
+      <div class="module-page ${this.currentPage === 'skills-catalog' ? 'active' : ''}" data-page="skills-catalog">
+        <div class="dashboard single-page-dashboard">
+          <div class="brain-skills-header">
+            <div class="brain-skills-header-left">
+              <div class="brain-skills-title">
+                <i data-lucide="grid-3x3"></i>
+                <span>技能目录</span>
+              </div>
+              <div class="brain-skills-count" id="brainSkillsCount"></div>
+            </div>
+            <div class="brain-skills-tabs" id="brainSkillsTabs">
+              <button class="brain-skills-tab active" data-filter="all">全部</button>
+              <button class="brain-skills-tab" data-filter="builtin">内置</button>
+              <button class="brain-skills-tab" data-filter="custom">自定义</button>
+            </div>
+          </div>
+          <div class="brain-skills-table-wrap" id="brainSkillsTable">
+            <div class="brain-skills-loading">加载中...</div>
+          </div>
         </div>
       </div>
 

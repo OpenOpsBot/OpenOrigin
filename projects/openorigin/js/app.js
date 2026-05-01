@@ -18,12 +18,15 @@ class App {
         { key: 'os-documentation', label: '系统文档' },
         { key: 'data-analysis', label: '数据分析' },
         { key: 'memory-viewer', label: '内存查看' },
+        { key: 'skills-catalog', label: '技能目录' },
         { key: 'agents', label: '智能体' },
         { key: 'schedules', label: '定时任务' }
       ],
       laboratory: [
-        { key: 'dashboard', label: '仪表盘' },
-        { key: 'ideas', label: '创意库' }
+        { key: 'dashboard', label: '指挥中心' },
+        { key: 'prototypes', label: '原型集' },
+        { key: 'ideas', label: '创意库' },
+        { key: 'research', label: '研究' }
       ]
     };
   }

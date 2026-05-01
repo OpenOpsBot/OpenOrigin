@@ -1,0 +1,67 @@
+{
+  "prototypes": [
+    {
+      "id": "proto-001",
+      "name": "意图路由原型",
+      "tagline": "基于 LLM 的用户意图分类与自动路由分发",
+      "port": 3001,
+      "status": "running",
+      "rating": 4.2,
+      "createdAt": "2026-05-01T22:00:00+08:00",
+      "updatedAt": "2026-05-01T23:30:00+08:00",
+      "description": "用于测试意图识别后自动分发到对应处理智能体的流程。",
+      "url": "http://localhost:3001"
+    },
+    {
+      "id": "proto-002",
+      "name": "会话记忆热区",
+      "tagline": "实时标注会话中的关键信息热区",
+      "port": 3002,
+      "status": "running",
+      "rating": 3.8,
+      "createdAt": "2026-04-30T20:00:00+08:00",
+      "updatedAt": "2026-05-01T10:00:00+08:00",
+      "description": "在长会话中标记高价值信息点，便于后续回顾和提取。",
+      "url": "http://localhost:3002"
+    },
+    {
+      "id": "proto-003",
+      "name": "任务拆解可视化",
+      "tagline": "复杂任务自动拆解并展示依赖关系图",
+      "port": 3003,
+      "status": "stopped",
+      "rating": 4.5,
+      "createdAt": "2026-04-28T18:00:00+08:00",
+      "updatedAt": "2026-04-30T12:00:00+08:00",
+      "description": "将用户模糊需求拆解为可执行的任务树，并可视化展示依赖关系。",
+      "url": "http://localhost:3003"
+    },
+    {
+      "id": "proto-004",
+      "name": "竞品监控仪表盘",
+      "tagline": "竞品动态实时监控与摘要推送",
+      "port": 3004,
+      "status": "stopped",
+      "rating": 3.5,
+      "createdAt": "2026-04-25T09:00:00+08:00",
+      "updatedAt": "2026-04-29T16:00:00+08:00",
+      "description": "定期抓取竞品公开信息，生成结构化摘要供决策参考。",
+      "url": "http://localhost:3004"
+    },
+    {
+      "id": "proto-005",
+      "name": "创意评分引擎",
+      "tagline": "多维度评分体系评估创意潜力",
+      "port": 3005,
+      "status": "running",
+      "rating": 4.7,
+      "createdAt": "2026-05-02T00:10:00+08:00",
+      "updatedAt": "2026-05-02T00:20:00+08:00",
+      "description": "结合痛点、速度、商业化、AI 优势四个维度给创意打分。",
+      "url": "http://localhost:3005"
+    }
+  ],
+  "meta": {
+    "updatedAt": "2026-05-02T00:20:00+08:00"
+  }
+}
