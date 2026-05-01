@@ -420,10 +420,18 @@ function getSessionsFromFile() {
     const sessionsPath = '/Users/ze/.openclaw/agents/main/sessions/sessions.json';
     const raw = fs.readFileSync(sessionsPath, 'utf8');
     const allSessions = JSON.parse(raw);
-    return {
-      path: sessionsPath,
-      count: Object.keys(allSessions).length,
-      sessions: Object.entries(allSessions).map(([key, s]) => ({
+    const sessionsDir = '/Users/ze/.openclaw/agents/main/sessions/';
+
+    const sessionsList = Object.entries(allSessions).map(([key, s]) => {
+      let messageCount = 0;
+      if (s.sessionFile) {
+        try {
+          const lines = fs.readFileSync(sessionsDir + s.sessionFile, 'utf8').trim().split('\n');
+          messageCount = lines.filter(l => l.includes('"type":"message"')).length;
+        } catch (_) {}
+      }
+
+      return {
         key,
         sessionId: s.sessionId,
         updatedAt: s.updatedAt,
@@ -440,12 +448,66 @@ function getSessionsFromFile() {
           chatType: s.origin.chatType,
           label: s.origin.label
         } : null,
-        sessionFile: s.sessionFile || null
-      }))
+        sessionFile: s.sessionFile || null,
+        messageCount,
+        title: s.origin?.label || s.origin?.surface || s.key
+      };
+    });
+
+    const sessions = sessionsList;
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    const activeNow = sessions.filter(s => s.updatedAt > fiveMinAgo).length;
+    const oldestSession = sessions.reduce((oldest, s) => !oldest || s.updatedAt < oldest.updatedAt ? s : oldest, null);
+    const uptimeDays = oldestSession ? Math.max(1, Math.round((Date.now() - oldestSession.updatedAt) / (1000 * 60 * 60 * 24))) : 0;
+
+    return {
+      path: sessionsPath,
+      count: Object.keys(allSessions).length,
+      entries: sessions,
+      activeNow,
+      uptimeDays
     };
   } catch (e) {
     return { error: 'read_error', detail: e.message };
   }
+}
+
+function getEventsFromSessions() {
+  const sessionsData = getSessionsFromFile();
+  if (sessionsData.error) return { entries: [] };
+
+  const sessions = sessionsData.entries || [];
+  const now = Date.now();
+  const FIVE_MIN = 5 * 60 * 1000;
+  const ONE_HOUR = 60 * 60 * 1000;
+
+  // Derive events from session lifecycle
+  const events = sessions
+    .map(s => {
+      const age = now - s.updatedAt;
+      let eventType = 'session_idle';
+      if (age < FIVE_MIN) eventType = 'session_active';
+      else if (age < ONE_HOUR) eventType = 'session_recent';
+      else if (s.abortedLastRun) eventType = 'session_error';
+
+      return {
+        id: s.sessionId || s.key,
+        sessionKey: s.key,
+        eventType,
+        description: s.origin?.label || s.origin?.surface || s.kind || '会话',
+        model: s.model,
+        timestamp: new Date(s.updatedAt).toISOString(),
+        messageCount: 0,
+        title: s.origin?.label || s.origin?.surface || s.key
+      };
+    })
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  return {
+    entries: events,
+    activeNow: sessionsData.activeNow,
+    uptimeDays: sessionsData.uptimeDays
+  };
 }
 
 function getHealth() {
@@ -647,6 +709,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/api/sessions') {
     sendJson(getSessionsFromFile());
+    return;
+  }
+  if (req.url === '/api/events') {
+    sendJson(getEventsFromSessions());
     return;
   }
   if (req.url === '/api/cron') {

@@ -18,6 +18,7 @@ class BrainModule {
     if (pageKey === 'daily-briefing') this.refreshBriefing();
     if (pageKey === 'automations') this.refreshAutomations();
     if (pageKey === 'os-documentation') this.refreshSystemReference();
+    if (pageKey === 'data-analysis') this.refreshDataAnalysis();
   }
 
   hide() {
@@ -497,6 +498,160 @@ class BrainModule {
     `;
   }
 
+  async refreshDataAnalysis() {
+    const statsEl = this.view?.querySelector('#brainDataStats');
+    const modelListEl = this.view?.querySelector('#brainDataModelList');
+    const hotListEl = this.view?.querySelector('#brainDataHotList');
+    const sessionTypesEl = this.view?.querySelector('#brainDataSessionTypes');
+    const timelineEl = this.view?.querySelector('#brainDataTimeline');
+
+    const empty = '<div class="brain-briefing-empty">暂无数据</div>';
+    if (modelListEl) modelListEl.innerHTML = '<div class="brain-briefing-empty">加载中...</div>';
+    if (hotListEl) hotListEl.innerHTML = '<div class="brain-briefing-empty">加载中...</div>';
+    if (sessionTypesEl) sessionTypesEl.innerHTML = '<div class="brain-briefing-empty">加载中...</div>';
+    if (timelineEl) timelineEl.innerHTML = '<div class="brain-briefing-empty">加载中...</div>';
+
+    try {
+      const [eventsRes, sessionsRes] = await Promise.all([
+        fetch('/api/events'),
+        fetch('/api/sessions')
+      ]);
+
+      const eventsData = eventsRes.ok ? (await eventsRes.json()) : { entries: [] };
+      const sessionsData = sessionsRes.ok ? (await sessionsRes.json()) : { entries: [] };
+
+      const events = Array.isArray(eventsData.entries) ? eventsData.entries : [];
+      const sessions = Array.isArray(sessionsData.entries) ? sessionsData.entries : [];
+
+      // Stats
+      const totalEvents = events.length;
+      const totalSessions = sessions.length;
+      const uptimeDays = sessionsData.uptimeDays || eventsData.uptimeDays || 0;
+      const activeNow = sessionsData.activeNow || eventsData.activeNow || 0;
+
+      if (statsEl) {
+        statsEl.querySelector('#brainDataTotalEvents').textContent = totalEvents;
+        statsEl.querySelector('#brainDataTotalSessions').textContent = totalSessions;
+        statsEl.querySelector('#brainDataUptime').textContent = uptimeDays ? `${uptimeDays}d` : '--';
+        statsEl.querySelector('#brainDataActiveNow').textContent = activeNow || '--';
+      }
+
+      // Model distribution
+      if (modelListEl) {
+        const modelMap = {};
+        sessions.forEach(s => {
+          const model = s.model || 'unknown';
+          modelMap[model] = (modelMap[model] || 0) + 1;
+        });
+        const sorted = Object.entries(modelMap).sort((a, b) => b[1] - a[1]);
+        if (!sorted.length) {
+          modelListEl.innerHTML = empty;
+        } else {
+          const total = sorted.reduce((sum, [, v]) => sum + v, 0);
+          modelListEl.innerHTML = sorted.map(([model, count]) => {
+            const pct = total > 0 ? Math.round(count / total * 100) : 0;
+            return `
+              <div class="brain-data-model-item">
+                <div class="brain-data-model-top">
+                  <span class="brain-data-model-name">${this.esc(model)}</span>
+                  <span class="brain-data-model-count">${count} <span>(${pct}%)</span></span>
+                </div>
+                <div class="brain-data-model-bar">
+                  <div class="brain-data-model-fill" style="width:${pct}%"></div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      // Hot sessions
+      if (hotListEl) {
+        const hot = sessions
+          .sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0))
+          .slice(0, 8);
+        if (!hot.length) {
+          hotListEl.innerHTML = empty;
+        } else {
+          hotListEl.innerHTML = hot.map(s => {
+            const lastActive = s.updatedAt ? new Date(s.updatedAt).toLocaleString('zh-CN', { hour12: false }) : '未知';
+            return `
+              <div class="brain-data-hot-item">
+                <div class="brain-data-hot-title">${this.esc(s.title || s.key || '未知会话')}</div>
+                <div class="brain-data-hot-meta">
+                  <span>${s.messageCount || 0} 条消息</span>
+                  <span>${lastActive}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      // Session types
+      if (sessionTypesEl) {
+        const typeMap = {};
+        sessions.forEach(s => {
+          const type = s.type || s.sessionType || 'unknown';
+          typeMap[type] = (typeMap[type] || 0) + 1;
+        });
+        const sorted = Object.entries(typeMap).sort((a, b) => b[1] - a[1]);
+        if (!sorted.length) {
+          sessionTypesEl.innerHTML = empty;
+        } else {
+          sessionTypesEl.innerHTML = `
+            <div class="brain-data-session-grid">
+              ${sorted.map(([type, count]) => `
+                <div class="brain-data-session-card">
+                  <div class="brain-data-session-type">${this.esc(type)}</div>
+                  <div class="brain-data-session-count">${count}</div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+      }
+
+      // Unified timeline
+      if (timelineEl) {
+        const merged = [
+          ...events.map(e => ({ ...e, _sort: new Date(e.timestamp || 0).getTime(), _kind: 'event' })),
+          ...sessions.map(s => ({ ...s, _sort: new Date(s.updatedAt || 0).getTime(), _kind: 'session' }))
+        ].sort((a, b) => b._sort - a._sort).slice(0, 30);
+
+        if (!merged.length) {
+          timelineEl.innerHTML = empty;
+        } else {
+          timelineEl.innerHTML = merged.map(item => {
+            const isEvent = item._kind === 'event';
+            const icon = isEvent ? 'activity' : 'message-square';
+            const label = isEvent ? (item.eventType || '事件') : (item.title || item.key || '会话');
+            const time = item.timestamp || (item.updatedAt ? new Date(item.updatedAt).toLocaleString('zh-CN', { hour12: false }) : '未知时间');
+            const meta = isEvent ? (item.description || '') : (`${item.messageCount || 0} 条消息`);
+            return `
+              <div class="brain-data-tl-item ${isEvent ? 'is-event' : 'is-session'}">
+                <div class="brain-data-tl-icon"><i data-lucide="${icon}"></i></div>
+                <div class="brain-data-tl-body">
+                  <div class="brain-data-tl-label">${this.esc(label)}</div>
+                  <div class="brain-data-tl-meta">${this.esc(meta)}</div>
+                </div>
+                <div class="brain-data-tl-time">${this.esc(String(time))}</div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      if (window.lucide) window.lucide.createIcons();
+    } catch (error) {
+      if (modelListEl) modelListEl.innerHTML = `<div class="brain-briefing-empty">加载失败：${this.esc(error.message)}</div>`;
+      if (hotListEl) hotListEl.innerHTML = empty;
+      if (sessionTypesEl) sessionTypesEl.innerHTML = empty;
+      if (timelineEl) timelineEl.innerHTML = empty;
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
   esc(str) {
     if (str == null) return '';
     const div = document.createElement('div');
@@ -594,6 +749,92 @@ class BrainModule {
           <section class="brain-briefing-detail brain-doc-detail active" id="brainSystemReferenceDetail">
             <div class="brain-briefing-empty">加载中...</div>
           </section>
+        </div>
+      </div>
+
+      <div class="module-page ${this.currentPage === 'data-analysis' ? 'active' : ''}" data-page="data-analysis">
+        <div class="dashboard single-page-dashboard">
+          <div class="brain-data-shell">
+            <div class="brain-data-header">
+              <div class="brain-data-header-text">
+                <div class="brain-briefing-detail-kicker">Data Analysis</div>
+                <h2 class="brain-data-title">系统事件统一时间线</h2>
+                <p class="brain-briefing-detail-lead">整合大脑模块的所有系统事件，按时间轴展示关联统计。</p>
+              </div>
+            </div>
+
+            <div class="brain-data-stats" id="brainDataStats">
+              <div class="brain-data-stat-card">
+                <div class="brain-data-stat-icon"><i data-lucide="activity"></i></div>
+                <div class="brain-data-stat-body">
+                  <div class="brain-data-stat-value" id="brainDataTotalEvents">--</div>
+                  <div class="brain-data-stat-label">总事件数</div>
+                </div>
+              </div>
+              <div class="brain-data-stat-card">
+                <div class="brain-data-stat-icon"><i data-lucide="message-square"></i></div>
+                <div class="brain-data-stat-body">
+                  <div class="brain-data-stat-value" id="brainDataTotalSessions">--</div>
+                  <div class="brain-data-stat-label">总会话数</div>
+                </div>
+              </div>
+              <div class="brain-data-stat-card">
+                <div class="brain-data-stat-icon"><i data-lucide="clock"></i></div>
+                <div class="brain-data-stat-body">
+                  <div class="brain-data-stat-value" id="brainDataUptime">--</div>
+                  <div class="brain-data-stat-label">运行时长</div>
+                </div>
+              </div>
+              <div class="brain-data-stat-card">
+                <div class="brain-data-stat-icon"><i data-lucide="zap"></i></div>
+                <div class="brain-data-stat-body">
+                  <div class="brain-data-stat-value" id="brainDataActiveNow">--</div>
+                  <div class="brain-data-stat-label">当前活跃</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="brain-data-two-col">
+              <div class="brain-data-col">
+                <div class="panel">
+                  <div class="panel-header"><i data-lucide="cpu"></i>模型分布</div>
+                  <div class="panel-body">
+                    <div class="brain-data-model-list" id="brainDataModelList">
+                      <div class="brain-briefing-empty">加载中...</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="brain-data-col">
+                <div class="panel">
+                  <div class="panel-header"><i data-lucide="flame"></i>热门会话</div>
+                  <div class="panel-body">
+                    <div class="brain-data-hot-list" id="brainDataHotList">
+                      <div class="brain-briefing-empty">加载中...</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header"><i data-lucide="layout-list"></i>会话类型</div>
+              <div class="panel-body">
+                <div class="brain-data-session-types" id="brainDataSessionTypes">
+                  <div class="brain-briefing-empty">加载中...</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header"><i data-lucide="git-branch"></i>统一时间线</div>
+              <div class="panel-body">
+                <div class="brain-data-timeline" id="brainDataTimeline">
+                  <div class="brain-briefing-empty">加载中...</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
