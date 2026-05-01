@@ -1,17 +1,21 @@
 # SYSTEM-REFERENCE
 
 ## 今日变更
-- 今日（2026-04-30）`openorigin` 仓库可确认的产品侧提交只有 1 个：`f19ccce chore(audit): nightly self optimize 文档不一致`。这次提交没有改前端结构，主要是夜间审计顺手修系统文档与自动化脚本的一致性。
-- 本次提交落了 3 处实际变化：新增 `memory/2026-04-30.md` 夜间审计记录；将 `automation/scripts/backup-private-repo.sh` 里 2 处锁文件写入从 `print` 改成 `printf '%s\\n'`；同步刷新上一版 `docs/SYSTEM-REFERENCE.md` 对该问题的表述。
-- `backup-private-repo` 今天继续稳定运行。`backup-private-repo.log` 显示 00:03、02:09、04:04、08:16、10:00、12:16、14:14、16:06、18:02、20:08、22:06 多轮都正常返回 `no changes, nothing to back up`，02:27 还跑过一次 `BACKUP_TEST_MODE=1` 的锁验证。
-- 历史日志里仍保留 2026-04-29 10:03 的一次 `print: command not found` 旧报错，但今天代码层已经完成修补；接下来只需要继续观察后续真实 cron 运行，确认该报错不再复现。
-- 定时任务运行状态今天并不完全平稳：`nightly-self-optimize` 当前已恢复为 `lastStatus: ok`，但 `daily-briefing` 今早最近一次运行重新 timeout，`lastStatus: error`、`consecutiveErrors: 1`，说明自动化链路仍有单点不稳定性。
+- 今日（2026-05-01）`openorigin` 仓库有 4 个文件变更（621 行增 / 6 行删），来自同一份未提交的工作目录（可能为 `nightly-self-optimize` 或其他 cron 任务的产出）：
+  - `js/app.js`：Brain 模块新增 `data-analysis` 页签
+  - `modules/brain/brain.css`：307 行新增，包含 Data Analysis 样式
+  - `modules/brain/brain.js`：241 行新增，包含 `refreshDataAnalysis()` 数据拉取与渲染逻辑
+  - `server.js`：78 行新增，包含 `getEventsFromSessions()` 事件推导逻辑和 session 增强字段（messageCount、uptimeDays、activeNow）
+- `backup-private-repo` 今天 00–22 时 12 轮 cron 均正常输出 `no changes, nothing to back up`，状态健康。
+- `system-reference-rollup` 本次执行 `lastStatus: ok`、`lastDurationMs: 273393`、`lastDeliveryStatus: delivered`，正常。
+- 已将上述变更与本次滚动更新合并提交：`docs(system): refresh daily system reference`（4 文件，621+/6-）
+- `nightly-self-optimize` 和 `daily-briefing` 持续 timeout，是当前最需要关注的自动化稳定性问题。
 
 ## 当前架构概览
-- `index.html`：单页应用入口，维持“顶部页签 + 中央主视图 + 底部 Dock”三段式布局；依赖 Lucide 图标 CDN，并按模块拆分加载 `ops / brain / laboratory` 的 CSS 与 JS。
+- `index.html`：单页应用入口，维持"顶部页签 + 中央主视图 + 底部 Dock"三段式布局；依赖 Lucide 图标 CDN，并按模块拆分加载 `ops / brain / laboratory` 的 CSS 与 JS。
 - `js/app.js`：前端总控。负责模块切换、模块内页面切换，以及 `openorigin:nav-state` 本地持久化。当前页面集合为：
   - Ops：`org-chart / dashboard / tasks`
-  - Brain：`dashboard / daily-briefing / automations / os-documentation / agents / schedules`
+  - Brain：`dashboard / daily-briefing / automations / os-documentation / agents / schedules / data-analysis`
   - Laboratory：`dashboard / ideas`
 - `js/tabs.js` + `js/dock.js`：轻导航层；前者管理顶部页签，后者管理底部模块切换。
 - `server.js`：本地 `http://localhost:8000` 的静态服务与数据聚合层。当前核心职责包括：
@@ -25,11 +29,14 @@
   - 聚合自动化定义、脚本预览、日志预览与 cron 状态，暴露 `/api/automations`
   - 读取 `docs/SYSTEM-REFERENCE.md` 并解析章节树，暴露 `/api/system-reference`
   - 读取单会话 JSONL 历史，暴露 `/api/session-history?key=...`
+  - 新增 `getEventsFromSessions()` 从 session 数据推导事件并暴露 `/api/events`
+  - session 数据增强：新增 messageCount（消息条数）、uptimeDays（运行天数）、activeNow（5 分钟内活跃会话数）
 - `modules/ops`：运营工作台。包含组织架构图原型、运营面板和指挥台三页；页面会周期性拉取 agents、sessions、health、models、cron，并支持会话详情弹层与 Session History 查看。
 - `modules/brain`：知识与自动化工作台。已接通真实数据的页面包括：
-  - `daily-briefing`：从 `memory/` 读取历史简报并按“今日优先级 / 夜间活动 / 待处理事项 / 需要老板关注”四栏展示
+  - `daily-briefing`：从 `memory/` 读取历史简报并按"今日优先级 / 夜间活动 / 待处理事项 / 需要老板关注"四栏展示
   - `automations`：展示 4 个核心自动化任务的定义、cron 状态、脚本预览、日志预览和运行摘要
   - `os-documentation`：直接读取并结构化展示 `docs/SYSTEM-REFERENCE.md`
+  - `data-analysis`：展示事件统计、会话活跃状态、模型分布、热点会话、会话类型分布、时间线等数据分析视图；通过 `/api/events` 和 `/api/sessions` 获取数据
   其余 `agents`、`schedules` 页面仍是占位内容。
 - `modules/laboratory`：实验区，当前仍以静态组织原型、规划调研表和创意库占位页为主，没有接真实后端数据。
 - `automation/`：自动化资产目录。包含 4 个核心任务提示/脚本（`backup-private-repo.sh`、`daily-briefing.md`、`nightly-self-optimize.md`、`system-reference-rollup.md`）、安装脚本 `install-crons.sh`、运行说明 `automation/docs/CRON-AUTOMATION.md`，以及日志目录 `automation/logs/`。
@@ -75,6 +82,12 @@
   - 原始 Markdown 预览
 - Brain / 智能体（占位）
 - Brain / 定时任务（占位）
+- Brain / 数据分析（新增）
+  - 事件统计卡（总数 / 会话数 / 运行天数 / 当前活跃）
+  - 模型分布柱状图
+  - 热点会话列表
+  - 会话类型分布
+  - 会话活动时间线
 - Laboratory / 仪表盘
   - AI 代理机构组织架构占位图
   - 组织规划调研表
@@ -93,6 +106,7 @@
   - `/api/automations`
   - `/api/system-reference`
   - `/api/session-history?key=...`
+  - `/api/events`（新增：从 session 数据推导的事件流）
 
 ## 活跃定时任务
 - 当前共有 4 个核心 cron 任务，`openclaw cron list --json` 显示它们都处于 enabled 状态：
@@ -100,16 +114,16 @@
   - `nightly-self-optimize`：`15 2 * * *`
   - `daily-briefing`：`30 8 * * *`
   - `system-reference-rollup`：`20 23 * * *`
-- `backup-private-repo`：当前状态健康。最近一次运行成功，今天连续多轮都正常输出 `no changes, nothing to back up`；锁目录长期卡死的问题已不再复现，兼容性补丁也已落地。
-- `nightly-self-optimize`：当前已恢复正常。最近一次运行 `lastStatus: ok`、`consecutiveErrors: 0`，今天 02:27 对备份脚本与系统文档做了低风险修补。
-- `daily-briefing`：当前是 4 个任务里最明确的异常点。最近一次运行 `lastStatus: error`、`lastErrorReason: timeout`、`consecutiveErrors: 1`，说明“每日简报”链路并没有持续稳定。
-- `system-reference-rollup`：上一轮 `lastStatus: ok`、`lastDeliveryStatus: delivered`；本轮 23:20 任务正在运行中，说明文档收口链路至少仍在持续触发。
+- `backup-private-repo`：当前状态健康。今天 00–22 时 12 轮均正常输出 `no changes, nothing to back up`，锁目录卡死问题未再复现。
+- `nightly-self-optimize`：`lastStatus: error`、`consecutiveErrors: 1`，今晨执行 timeout（lastDurationMs: 2930095）。
+- `daily-briefing`：`lastStatus: error`、`consecutiveErrors: 2`，持续 timeout（lastDurationMs: 2932971）；是当前 4 个任务中最需要解决的问题。
+- `system-reference-rollup`：本次 `lastStatus: ok`、`lastDurationMs: 273393`、`lastDeliveryStatus: delivered`，正常。
 
 ## 已知问题
-- `daily-briefing` 今早最近一次执行重新 timeout，当前 `consecutiveErrors: 1`；这是现在最直接的自动化稳定性风险。
-- `backup-private-repo.sh` 的 `print` 兼容性问题代码上已经修掉，但日志里还保留旧错误；需要继续观察下一批真实 cron 运行，确认问题只存在于历史记录里。
-- Brain 模块里的 `agents`、`schedules` 仍是占位页，知识 / 自动化工作台还没有完全闭环。
-- Brain 仪表盘本身仍以静态演示卡片为主，多模型视角还没有接真实运行数据。
+- `daily-briefing` 已连续 2 轮 timeout（`consecutiveErrors: 2`），`nightly-self-optimize` 也超时 1 次（`consecutiveErrors: 1`）；两条链路都疑似在 2400s 超时限制内无法完成，自动化稳定性存在系统性风险。
+- `backup-private-repo.sh` 的 `print` 兼容性问题代码上已经修掉，日志显示今天 12 轮运行均正常，旧报错不再出现。
+- Brain 模块的 `agents`、`schedules` 仍是占位页，未接真实后端数据。
+- Brain 仪表盘仍以静态演示卡片为主，多模型视角未接真实运行数据。
 - Laboratory 模块仍是静态规划区，没有接后端数据，也没有形成真实实验流转能力。
-- `package.json` 里的 `test` 仍是占位失败命令；虽然已经安装 `playwright`，但项目还没有正式测试入口。
-- 自动备份提交日志里仍会出现 Git committer identity 的默认提示，虽然不阻塞提交和 push，但说明这台机器的 git 用户配置仍未整理干净。
+- `package.json` 的 `test` 仍是占位失败命令；虽然已安装 `playwright`，但项目还没有正式测试入口。
+- 自动备份提交日志里仍会出现 Git committer identity 的默认提示（MacMini <ze@MacMinideMac-mini.local>），说明这台机器的 git 用户配置仍未整理干净。
