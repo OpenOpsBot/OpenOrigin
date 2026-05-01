@@ -19,6 +19,8 @@ class BrainModule {
     if (pageKey === 'automations') this.refreshAutomations();
     if (pageKey === 'os-documentation') this.refreshSystemReference();
     if (pageKey === 'data-analysis') this.refreshDataAnalysis();
+    if (pageKey === 'memory-viewer') this.refreshMemoryViewer();
+    if (pageKey === 'dashboard') this.refreshDashboard();
   }
 
   hide() {
@@ -652,6 +654,275 @@ class BrainModule {
     }
   }
 
+  async refreshDashboard() {
+    const modelsEl = this.view?.querySelector('#brainDashModels');
+    const sessionsEl = this.view?.querySelector('#brainDashSessions');
+
+    if (modelsEl) modelsEl.innerHTML = '<div class="brain-dash-loading">加载中...</div>';
+    if (sessionsEl) sessionsEl.innerHTML = '<div class="brain-dash-loading">加载中...</div>';
+
+    try {
+      const [modelsRes, sessionsRes, cronRes] = await Promise.all([
+        fetch('/api/models'),
+        fetch('/api/sessions'),
+        fetch('/api/cron')
+      ]);
+      const modelsData = modelsRes.ok ? (await modelsRes.json()) : { models: [] };
+      const sessionsData = sessionsRes.ok ? (await sessionsRes.json()) : { entries: [] };
+      const cronData = cronRes.ok ? (await cronRes.json()) : { jobs: [] };
+
+      const models = Array.isArray(modelsData.models) ? modelsData.models : [];
+      const sessions = Array.isArray(sessionsData.entries) ? sessionsData.entries : [];
+
+      // Models
+      if (modelsEl) {
+        if (!models.length) {
+          modelsEl.innerHTML = '<div class="brain-dash-empty">暂无模型数据</div>';
+        } else {
+          modelsEl.innerHTML = models.map(m => `
+            <div class="brain-dash-card brain-dash-model-card">
+              <div class="brain-dash-card-top">
+                <div class="brain-dash-card-icon is-model"><i data-lucide="cpu"></i></div>
+                <span class="brain-dash-badge is-ok">在线</span>
+              </div>
+              <div class="brain-dash-card-name">${this.esc(m.name || m.model || m.ref)}</div>
+              <div class="brain-dash-card-meta">
+                <span>${this.esc(m.provider || 'unknown')}</span>
+                <span>ctx ${this.esc(String(m.contextWindow || '--'))}</span>
+              </div>
+              <div class="brain-dash-card-tags">
+                ${m.reasoning ? '<span class="brain-dash-tag">推理</span>' : ''}
+                ${m.multimodal ? '<span class="brain-dash-tag">多模态</span>' : ''}
+                ${m.role ? `<span class="brain-dash-tag is-primary">${this.esc(m.role)}</span>` : ''}
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+
+      // Sessions
+      if (sessionsEl) {
+        if (!sessions.length) {
+          sessionsEl.innerHTML = '<div class="brain-dash-empty">暂无会话数据</div>';
+        } else {
+          const sorted = [...sessions].sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
+          sorted.forEach(s => {
+            const updatedAt = s.updatedAt ? new Date(s.updatedAt) : null;
+            const timeStr = updatedAt ? updatedAt.toLocaleString('zh-CN', { hour12: false }) : '未知';
+            const ageStr = updatedAt ? this.formatAge(Date.now() - s.updatedAt) : '--';
+            const provider = s.origin?.provider || s.modelProvider || 'unknown';
+            const isActive = updatedAt && (Date.now() - s.updatedAt < 5 * 60 * 1000);
+            const sessionTitle = s.title || s.key || '未知会话';
+            const truncatedTitle = sessionTitle.length > 28 ? sessionTitle.slice(0, 28) + '…' : sessionTitle;
+
+            const el = document.createElement('div');
+            el.className = `brain-dash-card brain-dash-session-card${isActive ? ' is-active' : ''}`;
+            el.innerHTML = `
+              <div class="brain-dash-card-top">
+                <div class="brain-dash-card-icon is-session"><i data-lucide="message-square"></i></div>
+                <span class="brain-dash-badge ${isActive ? 'is-ok' : 'is-dim'}">${isActive ? '活跃' : ageStr}</span>
+              </div>
+              <div class="brain-dash-card-name" title="${this.esc(sessionTitle)}">${this.esc(truncatedTitle)}</div>
+              <div class="brain-dash-card-meta">
+                <span>${this.esc(provider)}</span>
+                <span>${s.messageCount || 0} 条</span>
+              </div>
+              <div class="brain-dash-card-tags">
+                <span class="brain-dash-tag">${this.esc(s.model || 'unknown')}</span>
+                <span class="brain-dash-tag">${this.esc(s.kind || 'unknown')}</span>
+              </div>
+            `;
+            sessionsEl.appendChild(el);
+          });
+        }
+      }
+
+      // Cron jobs
+      const cronEl = this.view?.querySelector('#brainDashCron');
+      if (cronEl) {
+        const jobs = Array.isArray(cronData.jobs) ? cronData.jobs : [];
+        if (!jobs.length) {
+          cronEl.innerHTML = '<div class="brain-dash-empty">暂无定时任务</div>';
+        } else {
+          cronEl.innerHTML = jobs.map(job => {
+            const status = job.state?.lastRunStatus || job.state?.lastStatus || 'unknown';
+            const statusClass = status === 'ok' ? 'is-ok' : status === 'error' ? 'is-danger' : 'is-warn';
+            const statusLabel = status === 'ok' ? '正常' : status === 'error' ? '异常' : '等待';
+            const lastRun = job.lastRun?.at
+              ? new Date(job.lastRun.at).toLocaleString('zh-CN', { hour12: false })
+              : '从未';
+            const lastDur = job.lastRun?.durationMs
+              ? `${(job.lastRun.durationMs / 1000).toFixed(1)}s`
+              : '--';
+            const nextRun = job.nextRun
+              ? new Date(job.nextRun).toLocaleString('zh-CN', { hour12: false })
+              : '未配置';
+            const scheduleStr = job.schedule?.expr || '--';
+            return `
+              <div class="brain-dash-cron-row">
+                <div class="brain-dash-cron-name">${this.esc(job.name)}</div>
+                <div class="brain-dash-cron-schedule">${this.esc(scheduleStr)}</div>
+                <div class="brain-dash-cron-last">
+                  <span>${lastRun}</span>
+                  <span class="brain-dash-cron-dur">${lastDur}</span>
+                </div>
+                <div class="brain-dash-cron-next">${this.esc(nextRun)}</div>
+                <div class="brain-dash-cron-status">
+                  <span class="brain-dash-cron-badge ${statusClass}">${statusLabel}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      if (window.lucide) window.lucide.createIcons();
+    } catch (error) {
+      if (modelsEl) modelsEl.innerHTML = `<div class="brain-dash-empty">加载失败：${this.esc(error.message)}</div>`;
+      if (sessionsEl) sessionsEl.innerHTML = '<div class="brain-dash-empty">加载失败</div>';
+      const cronEl = this.view?.querySelector('#brainDashCron');
+      if (cronEl) cronEl.innerHTML = '<div class="brain-dash-empty">加载失败</div>';
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
+  formatAge(ms) {
+    if (ms < 60000) return '刚刚';
+    if (ms < 3600000) return `${Math.floor(ms / 60000)}m`;
+    if (ms < 86400000) return `${Math.floor(ms / 3600000)}h`;
+    return `${Math.floor(ms / 86400000)}d`;
+  }
+
+  async refreshMemoryViewer() {
+    const listEl = this.view?.querySelector('#brainMemoryFileList');
+    const previewContent = this.view?.querySelector('#brainMemoryPreviewContent');
+    const previewTitle = this.view?.querySelector('#brainMemoryPreviewTitle');
+    const previewEmpty = this.view?.querySelector('.brain-memory-empty-state');
+
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="brain-memory-loading">加载中...</div>';
+
+    try {
+      const res = await fetch('/api/memory-files');
+      if (!res.ok) throw new Error('加载失败');
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const entries = data.entries || [];
+      const pinned = data.pinned || [];
+
+      if (!entries.length) {
+        listEl.innerHTML = '<div class="brain-memory-loading">memory 目录为空</div>';
+        return;
+      }
+
+      // Build file list HTML
+      let html = '';
+      entries.forEach((file, idx) => {
+        const isPinned = pinned.includes(file.name);
+        const isFirst = idx === 0;
+        const pinnedLabel = isPinned ? ' <span class="brain-memory-pin">固定</span>' : '';
+        const sizeLabel = this.formatFileSize(file.size);
+        const dateStr = new Date(file.mtime).toLocaleDateString('zh-CN', { hour12: false });
+        html += `
+          <button class="brain-memory-file-item${isFirst ? ' active' : ''}" data-name="${this.esc(file.name)}" data-path="${this.esc(file.path)}">
+            <div class="brain-memory-file-icon"><i data-lucide="file-text"></i></div>
+            <div class="brain-memory-file-body">
+              <div class="brain-memory-file-name">${this.esc(file.name)}${pinnedLabel}</div>
+              <div class="brain-memory-file-meta">
+                <span>${dateStr}</span>
+                <span>${sizeLabel}</span>
+              </div>
+            </div>
+          </button>
+        `;
+      });
+      listEl.innerHTML = html;
+
+      // Click handlers
+      listEl.querySelectorAll('.brain-memory-file-item').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          listEl.querySelectorAll('.brain-memory-file-item').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          const name = btn.dataset.name;
+          const fileRes = await fetch(`/api/memory-file?file=${encodeURIComponent(name)}`);
+          const fileData = await fileRes.json();
+
+          if (previewTitle) previewTitle.textContent = name;
+          if (previewEmpty) previewEmpty.style.display = 'none';
+          if (previewContent) {
+            if (fileData.error || !fileData.content) {
+              previewContent.innerHTML = `<div class="brain-memory-loading">读取失败：${this.esc(fileData.error || '未知错误')}</div>`;
+            } else {
+              previewContent.innerHTML = this.renderMarkdown(fileData.content);
+            }
+            previewContent.style.display = 'block';
+          }
+          if (window.lucide) window.lucide.createIcons();
+        });
+      });
+
+      // Auto-select first file
+      const firstBtn = listEl.querySelector('.brain-memory-file-item');
+      if (firstBtn) firstBtn.click();
+
+      if (window.lucide) window.lucide.createIcons();
+    } catch (error) {
+      listEl.innerHTML = `<div class="brain-memory-loading">加载失败：${this.esc(error.message)}</div>`;
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
+  renderMarkdown(content) {
+    // Basic markdown to HTML renderer
+    let html = content
+      // Escape HTML
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      // Code blocks
+      .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="md-code-block"><code>$2</code></pre>')
+      // Inline code
+      .replace(/`([^`]+)`/g, '<code class="md-code">$1</code>')
+      // Headers
+      .replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>')
+      .replace(/^# (.+)$/gm, '<h1 class="md-h1">$1</h1>')
+      // Bold
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      // Blockquote
+      .replace(/^> (.+)$/gm, '<blockquote class="md-blockquote">$1</blockquote>')
+      // Unordered list
+      .replace(/^[\-\*] (.+)$/gm, '<li class="md-li">$1</li>')
+      // Ordered list
+      .replace(/^\d+\. (.+)$/gm, '<li class="md-li">$1</li>')
+      // Horizontal rule
+      .replace(/^---$/gm, '<hr class="md-hr">')
+      // Paragraphs (lines that aren't special)
+      .split('\n\n')
+      .map(block => {
+        block = block.trim();
+        if (!block) return '';
+        if (block.startsWith('<')) return block;
+        // Wrap non-list lines as paragraphs
+        if (!block.match(/^<li/)) block = `<p class="md-p">${block.replace(/\n/g, '<br>')}</p>`;
+        else block = `<ul class="md-ul">${block}</ul>`;
+        return block;
+      })
+      .join('\n');
+
+    return `<div class="md-body">${html}</div>`;
+  }
+
+  formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + 'B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+  }
+
   esc(str) {
     if (str == null) return '';
     const div = document.createElement('div');
@@ -665,52 +936,34 @@ class BrainModule {
     this.view.id = 'brainView';
     this.view.innerHTML = `
       <div class="module-page ${this.currentPage === 'dashboard' ? 'active' : ''}" data-page="dashboard">
-        <div class="dashboard">
-          <div class="panel">
-            <div class="panel-header">
-              <i data-lucide="brain"></i>
-              大脑能力概览
+        <div class="dashboard brain-dashboard-root">
+          <div class="brain-dash-section">
+            <div class="brain-dash-section-header">
+              <i data-lucide="cpu"></i>
+              <span>Models</span>
             </div>
-            <div class="panel-body">
-              <div class="feature-list">
-                <div class="feature-item">
-                  <span class="feature-name">记忆管理</span>
-                  <span class="feature-status coming-soon">规划中</span>
-                </div>
-                <div class="feature-item">
-                  <span class="feature-name">意图识别</span>
-                  <span class="feature-status coming-soon">规划中</span>
-                </div>
-                <div class="feature-item">
-                  <span class="feature-name">任务规划</span>
-                  <span class="feature-status coming-soon">规划中</span>
-                </div>
-              </div>
+            <div class="brain-dash-models-grid" id="brainDashModels">
+              <div class="brain-dash-loading">加载中...</div>
             </div>
           </div>
 
-          <div class="panel">
-            <div class="panel-header">
-              <i data-lucide="cpu"></i>
-              多模型视角
+          <div class="brain-dash-section">
+            <div class="brain-dash-section-header">
+              <i data-lucide="message-square"></i>
+              <span>动态会话</span>
             </div>
-            <div class="panel-body">
-              <div class="model-grid">
-                <div class="model-card demo-offline">
-                  <div class="model-card-top">
-                    <span class="model-card-name">MiniMax M2.7</span>
-                    <span class="feature-status offline">离线</span>
-                  </div>
-                  <div class="model-card-meta">演示卡片，占位用于后续多模型视图接入。</div>
-                </div>
-                <div class="model-card demo-offline">
-                  <div class="model-card-top">
-                    <span class="model-card-name">Codex 5.4</span>
-                    <span class="feature-status offline">离线</span>
-                  </div>
-                  <div class="model-card-meta">预留训练营后续接入，当前使用演示数据展示布局。</div>
-                </div>
-              </div>
+            <div class="brain-dash-sessions-grid" id="brainDashSessions">
+              <div class="brain-dash-loading">加载中...</div>
+            </div>
+          </div>
+
+          <div class="brain-dash-section">
+            <div class="brain-dash-section-header">
+              <i data-lucide="clock"></i>
+              <span>定时任务</span>
+            </div>
+            <div class="brain-dash-cron-list" id="brainDashCron">
+              <div class="brain-dash-loading">加载中...</div>
             </div>
           </div>
         </div>
@@ -835,6 +1088,27 @@ class BrainModule {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div class="module-page ${this.currentPage === 'memory-viewer' ? 'active' : ''}" data-page="memory-viewer">
+        <div class="brain-memory-shell">
+          <aside class="brain-memory-sidebar">
+            <div class="panel-header"><i data-lucide="folder"></i>memory/</div>
+            <div class="brain-memory-file-list" id="brainMemoryFileList">
+              <div class="brain-memory-loading">加载中...</div>
+            </div>
+          </aside>
+          <section class="brain-memory-preview">
+            <div class="panel-header"><i data-lucide="file-text"></i><span id="brainMemoryPreviewTitle">预览</span></div>
+            <div class="panel-body brain-memory-markdown-body">
+              <div class="brain-memory-empty-state">
+                <i data-lucide="mouse-pointer-click"></i>
+                <span>点击左侧文件查看内容</span>
+              </div>
+              <div id="brainMemoryPreviewContent" style="display:none"></div>
+            </div>
+          </section>
         </div>
       </div>
 

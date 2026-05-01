@@ -17,6 +17,7 @@ class App {
         { key: 'automations', label: '自动化' },
         { key: 'os-documentation', label: '系统文档' },
         { key: 'data-analysis', label: '数据分析' },
+        { key: 'memory-viewer', label: '内存查看' },
         { key: 'agents', label: '智能体' },
         { key: 'schedules', label: '定时任务' }
       ],

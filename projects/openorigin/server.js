@@ -210,6 +210,42 @@ function readMemoryBriefings() {
   }
 }
 
+function listMemoryFiles() {
+  try {
+    const files = fs.readdirSync(MEMORY_DIR).filter(n => n.endsWith('.md'));
+    const withMeta = files.map(name => {
+      const fullPath = path.join(MEMORY_DIR, name);
+      const stat = fs.statSync(fullPath);
+      return {
+        name,
+        path: fullPath,
+        size: stat.size,
+        mtime: stat.mtime.toISOString()
+      };
+    });
+    // Sort by mtime descending
+    withMeta.sort((a, b) => new Date(b.mtime) - new Date(a.mtime));
+    // Pinned files
+    const pinned = ['MEMORY.md', 'BACKLOG.md'].filter(n => withMeta.some(f => f.name === n));
+    const rest = withMeta.filter(f => !pinned.includes(f.name));
+    return { entries: [...pinned.map(n => withMeta.find(f => f.name === n)), ...rest].filter(Boolean), pinned };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+function readMemoryFile(fileName) {
+  try {
+    const safeName = path.basename(fileName);
+    const fullPath = path.join(MEMORY_DIR, safeName);
+    if (!fs.existsSync(fullPath)) return { error: 'not_found' };
+    const content = fs.readFileSync(fullPath, 'utf8');
+    return { name: safeName, path: fullPath, content };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 function readTextSafe(filePath) {
   try {
     return fs.readFileSync(filePath, 'utf8');
@@ -426,7 +462,7 @@ function getSessionsFromFile() {
       let messageCount = 0;
       if (s.sessionFile) {
         try {
-          const lines = fs.readFileSync(sessionsDir + s.sessionFile, 'utf8').trim().split('\n');
+          const lines = fs.readFileSync(sessionsDir + s.sessionFile.split('/').pop(), 'utf8').trim().split('\n');
           messageCount = lines.filter(l => l.includes('"type":"message"')).length;
         } catch (_) {}
       }
@@ -733,6 +769,16 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/api/memory-briefings') {
     sendJson(readMemoryBriefings());
+    return;
+  }
+  if (req.url === '/api/memory-files') {
+    sendJson(listMemoryFiles());
+    return;
+  }
+  if (req.url.startsWith('/api/memory-file?')) {
+    const file = new URL(req.url, 'http://localhost').searchParams.get('file');
+    if (!file) { sendJson({ error: 'missing file' }, 400); return; }
+    sendJson(readMemoryFile(file));
     return;
   }
   if (req.url === '/api/automations') {
