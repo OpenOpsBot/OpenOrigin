@@ -796,11 +796,16 @@ class BrainModule {
 
   async refreshMemoryViewer() {
     const listEl = this.view?.querySelector('#brainMemoryFileList');
+    const rootListEl = this.view?.querySelector('#brainMemoryRootList');
     const previewContent = this.view?.querySelector('#brainMemoryPreviewContent');
     const previewTitle = this.view?.querySelector('#brainMemoryPreviewTitle');
     const previewEmpty = this.view?.querySelector('.brain-memory-empty-state');
 
     if (!listEl) return;
+
+    // Load long-term memory (MEMORY.md)
+    this.refreshMemoryRoot(rootListEl, previewContent, previewTitle, previewEmpty);
+    // Load daily memory files
     listEl.innerHTML = '<div class="brain-memory-loading">加载中...</div>';
 
     try {
@@ -871,6 +876,75 @@ class BrainModule {
       if (window.lucide) window.lucide.createIcons();
     } catch (error) {
       listEl.innerHTML = `<div class="brain-memory-loading">加载失败：${this.esc(error.message)}</div>`;
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
+  async refreshMemoryRoot(rootListEl, previewContent, previewTitle, previewEmpty) {
+    if (!rootListEl) return;
+    rootListEl.innerHTML = '<div class="brain-memory-loading">加载中...</div>';
+
+    try {
+      const res = await fetch('/api/memory-root');
+      if (!res.ok) throw new Error('加载失败');
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const entries = data.entries || [];
+      if (!entries.length) {
+        rootListEl.innerHTML = '<div class="brain-memory-loading">无长期数据</div>';
+        return;
+      }
+
+      let html = '';
+      entries.forEach((file, idx) => {
+        const isFirst = idx === 0;
+        const sizeLabel = this.formatFileSize(file.size);
+        const dateStr = new Date(file.mtime).toLocaleDateString('zh-CN', { hour12: false });
+        html += `
+          <button class="brain-memory-file-item${isFirst ? ' active' : ''}" data-name="${this.esc(file.name)}" data-path="${this.esc(file.path)}">
+            <div class="brain-memory-file-icon"><i data-lucide="database"></i></div>
+            <div class="brain-memory-file-body">
+              <div class="brain-memory-file-name">${this.esc(file.name)}</div>
+              <div class="brain-memory-file-meta">
+                <span>${dateStr}</span>
+                <span>${sizeLabel}</span>
+              </div>
+            </div>
+          </button>
+        `;
+      });
+      rootListEl.innerHTML = html;
+
+      rootListEl.querySelectorAll('.brain-memory-file-item').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          rootListEl.querySelectorAll('.brain-memory-file-item').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          const name = btn.dataset.name;
+          const fileRes = await fetch(`/api/memory-root-file?file=${encodeURIComponent(name)}`);
+          const fileData = await fileRes.json();
+
+          if (previewTitle) previewTitle.textContent = name;
+          if (previewEmpty) previewEmpty.style.display = 'none';
+          if (previewContent) {
+            if (fileData.error || !fileData.content) {
+              previewContent.innerHTML = `<div class="brain-memory-loading">读取失败：${this.esc(fileData.error || '未知错误')}</div>`;
+            } else {
+              previewContent.innerHTML = this.renderMarkdown(fileData.content);
+            }
+            previewContent.style.display = 'block';
+          }
+          if (window.lucide) window.lucide.createIcons();
+        });
+      });
+
+      const firstBtn = rootListEl.querySelector('.brain-memory-file-item');
+      if (firstBtn) firstBtn.click();
+
+      if (window.lucide) window.lucide.createIcons();
+    } catch (error) {
+      rootListEl.innerHTML = `<div class="brain-memory-loading">加载失败：${this.esc(error.message)}</div>`;
       if (window.lucide) window.lucide.createIcons();
     }
   }
@@ -1175,7 +1249,11 @@ class BrainModule {
       <div class="module-page ${this.currentPage === 'memory-viewer' ? 'active' : ''}" data-page="memory-viewer">
         <div class="brain-memory-shell">
           <aside class="brain-memory-sidebar">
-            <div class="panel-header"><i data-lucide="folder"></i>memory/</div>
+            <div class="panel-header"><i data-lucide="database"></i>长期数据</div>
+            <div class="brain-memory-file-list" id="brainMemoryRootList">
+              <div class="brain-memory-loading">加载中...</div>
+            </div>
+            <div class="panel-header" style="margin-top:12px"><i data-lucide="folder"></i>每日记录</div>
             <div class="brain-memory-file-list" id="brainMemoryFileList">
               <div class="brain-memory-loading">加载中...</div>
             </div>

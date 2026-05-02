@@ -246,6 +246,40 @@ function readMemoryFile(fileName) {
   }
 }
 
+function readMemoryRoot() {
+  try {
+    const memoryRoot = '/Users/ze/.openclaw/workspace/MEMORY.md';
+    if (!fs.existsSync(memoryRoot)) return { error: 'not_found' };
+    const stat = fs.statSync(memoryRoot);
+    const content = fs.readFileSync(memoryRoot, 'utf8');
+    return {
+      entries: [{
+        name: 'MEMORY.md',
+        path: memoryRoot,
+        size: stat.size,
+        mtime: stat.mtime.toISOString(),
+        group: '长期数据'
+      }],
+      pinned: []
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+function readMemoryRootFile(fileName) {
+  try {
+    const safeName = path.basename(fileName);
+    if (safeName !== 'MEMORY.md') return { error: 'not_found' };
+    const fullPath = '/Users/ze/.openclaw/workspace/MEMORY.md';
+    if (!fs.existsSync(fullPath)) return { error: 'not_found' };
+    const content = fs.readFileSync(fullPath, 'utf8');
+    return { name: safeName, path: fullPath, content };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 const PROTOTYPES_FILE = path.join(STATIC_DIR, 'data/prototypes.json');
 const IDEAS_FILE = path.join(STATIC_DIR, 'data/ideas.json');
 const RESEARCH_DIR = '/Users/ze/research';
@@ -911,6 +945,16 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/api/memory-files') {
     sendJson(listMemoryFiles());
+    return;
+  }
+  if (req.url === '/api/memory-root') {
+    sendJson(readMemoryRoot());
+    return;
+  }
+  if (req.url.startsWith('/api/memory-root-file?')) {
+    const file = new URL(req.url, 'http://localhost').searchParams.get('file');
+    if (!file) { sendJson({ error: 'missing file' }, 400); return; }
+    sendJson(readMemoryRootFile(file));
     return;
   }
   if (req.url === '/api/skills') {
