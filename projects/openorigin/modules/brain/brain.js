@@ -1,7 +1,7 @@
 class BrainModule {
   constructor() {
     this.view = null;
-    this.currentPage = 'dashboard';
+    this.currentPage = 'mission-control';
     this.briefings = [];
     this.selectedBriefingDate = null;
     this.automations = [];
@@ -10,7 +10,7 @@ class BrainModule {
     this.systemReference = null;
   }
 
-  show(pageKey = 'dashboard') {
+  show(pageKey = 'mission-control') {
     this.currentPage = pageKey;
     if (!this.view) this.render();
     this.view.classList.add('active');
@@ -22,6 +22,7 @@ class BrainModule {
     if (pageKey === 'memory-viewer') this.refreshMemoryViewer();
     if (pageKey === 'skills-catalog') this.refreshSkillsCatalog();
     if (pageKey === 'dashboard') this.refreshDashboard();
+    if (pageKey === 'mission-control') this.refreshMissionControl();
   }
 
   hide() {
@@ -655,12 +656,67 @@ class BrainModule {
     }
   }
 
-  async refreshDashboard() {
+  async refreshMissionControl() {
     const modelsEl = this.view?.querySelector('#brainDashModels');
     const sessionsEl = this.view?.querySelector('#brainDashSessions');
 
     if (modelsEl) modelsEl.innerHTML = '<div class="brain-dash-loading">加载中...</div>';
     if (sessionsEl) sessionsEl.innerHTML = '<div class="brain-dash-loading">加载中...</div>';
+
+    // Overview cards
+    try {
+      const overviewRes = await fetch('/api/brain-overview');
+      if (overviewRes.ok) {
+        const ov = await overviewRes.json();
+
+        // 每日简报
+        const b = ov.briefing;
+        const bEl = document.getElementById('brainOverview_briefing');
+        const bSub = document.getElementById('brainOverview_briefingSub');
+        if (bEl && b) {
+          bEl.textContent = b.latest ? `${b.latest.date}` : '无';
+          bSub.textContent = b.latest?.summary ? b.latest.summary.slice(0, 30) + (b.latest.summary.length > 30 ? '…' : '') : (b.total ? `共 ${b.total} 份` : '无数据');
+        }
+
+        // 内存统计
+        const m = ov.memory;
+        const mEl = document.getElementById('brainOverview_memory');
+        const mSub = document.getElementById('brainOverview_memorySub');
+        if (mEl && m) {
+          mEl.textContent = `${m.count} 个文件`;
+          mSub.textContent = m.totalSize > 0 ? `总计 ${this.formatFileSize(m.totalSize)}${m.lastUpdate ? ` · 最后更新 ${new Date(m.lastUpdate).toLocaleDateString('zh-CN')}` : ''}` : '无数据';
+        }
+
+        // 自动化任务
+        const c = ov.cron;
+        const cEl = document.getElementById('brainOverview_cron');
+        const cSub = document.getElementById('brainOverview_cronSub');
+        if (cEl && c) {
+          cEl.textContent = `${c.ok} 正常 / ${c.error} 异常`;
+          cSub.textContent = `共 ${c.total} 个任务`;
+        }
+
+        // 技能数量
+        const s = ov.skills;
+        const sEl = document.getElementById('brainOverview_skills');
+        const sSub = document.getElementById('brainOverview_skillsSub');
+        if (sEl && s) {
+          sEl.textContent = `${s.total} 个`;
+          sSub.textContent = `内置 ${s.builtin} · 自定义 ${s.custom}`;
+        }
+      }
+    } catch (_) {}
+
+    // Card click navigation
+    this.view?.querySelectorAll('.brain-overview-card[data-link]').forEach(card => {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => {
+        const link = card.dataset.link;
+        if (window.app && window.app.navigate) window.app.navigate('brain', link);
+      });
+    });
+
+    if (window.lucide) window.lucide.createIcons();
 
     try {
       const [modelsRes, sessionsRes, cronRes] = await Promise.all([
@@ -739,6 +795,187 @@ class BrainModule {
       }
 
       // Cron jobs
+      const cronEl = this.view?.querySelector('#brainDashCron');
+      if (cronEl) {
+        const jobs = Array.isArray(cronData.jobs) ? cronData.jobs : [];
+        if (!jobs.length) {
+          cronEl.innerHTML = '<div class="brain-dash-empty">暂无定时任务</div>';
+        } else {
+          cronEl.innerHTML = jobs.map(job => {
+            const status = job.state?.lastRunStatus || job.state?.lastStatus || 'unknown';
+            const statusClass = status === 'ok' ? 'is-ok' : status === 'error' ? 'is-danger' : 'is-warn';
+            const statusLabel = status === 'ok' ? '正常' : status === 'error' ? '异常' : '等待';
+            const lastRun = job.lastRun?.at
+              ? new Date(job.lastRun.at).toLocaleString('zh-CN', { hour12: false })
+              : '从未';
+            const lastDur = job.lastRun?.durationMs
+              ? `${(job.lastRun.durationMs / 1000).toFixed(1)}s`
+              : '--';
+            const nextRun = job.nextRun
+              ? new Date(job.nextRun).toLocaleString('zh-CN', { hour12: false })
+              : '未配置';
+            const scheduleStr = job.schedule?.expr || '--';
+            return `
+              <div class="brain-dash-cron-row">
+                <div class="brain-dash-cron-name">${this.esc(job.name)}</div>
+                <div class="brain-dash-cron-schedule">${this.esc(scheduleStr)}</div>
+                <div class="brain-dash-cron-last">
+                  <span>${lastRun}</span>
+                  <span class="brain-dash-cron-dur">${lastDur}</span>
+                </div>
+                <div class="brain-dash-cron-next">${this.esc(nextRun)}</div>
+                <div class="brain-dash-cron-status">
+                  <span class="brain-dash-cron-badge ${statusClass}">${statusLabel}</span>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      if (window.lucide) window.lucide.createIcons();
+    } catch (error) {
+      if (modelsEl) modelsEl.innerHTML = `<div class="brain-dash-empty">加载失败：${this.esc(error.message)}</div>`;
+      if (sessionsEl) sessionsEl.innerHTML = '<div class="brain-dash-empty">加载失败</div>';
+      const cronEl = this.view?.querySelector('#brainDashCron');
+      if (cronEl) cronEl.innerHTML = '<div class="brain-dash-empty">加载失败</div>';
+      if (window.lucide) window.lucide.createIcons();
+    }
+  }
+
+  async refreshDashboard() {
+    const modelsEl = this.view?.querySelector('#brainDashModels');
+    const sessionsEl = this.view?.querySelector('#brainDashSessions');
+
+    // Overview cards
+    try {
+      const overviewRes = await fetch('/api/brain-overview');
+      if (overviewRes.ok) {
+        const ov = await overviewRes.json();
+
+        const b = ov.briefing;
+        const bEl = document.getElementById('brainDashOverview_briefing');
+        const bSub = document.getElementById('brainDashOverview_briefingSub');
+        if (bEl && b) {
+          bEl.textContent = b.latest ? b.latest.date : '无';
+          bSub.textContent = b.latest?.summary ? b.latest.summary.slice(0, 30) + (b.latest.summary.length > 30 ? '…' : '') : (b.total ? `共 ${b.total} 份` : '无数据');
+        }
+
+        const m = ov.memory;
+        const mEl = document.getElementById('brainDashOverview_memory');
+        const mSub = document.getElementById('brainDashOverview_memorySub');
+        if (mEl && m) {
+          mEl.textContent = `${m.count} 个文件`;
+          mSub.textContent = m.totalSize > 0 ? `总计 ${this.formatFileSize(m.totalSize)}${m.lastUpdate ? ` · 最后更新 ${new Date(m.lastUpdate).toLocaleDateString('zh-CN')}` : ''}` : '无数据';
+        }
+
+        const c = ov.cron;
+        const cEl = document.getElementById('brainDashOverview_cron');
+        const cSub = document.getElementById('brainDashOverview_cronSub');
+        if (cEl && c) {
+          cEl.textContent = `${c.ok} 正常 / ${c.error} 异常`;
+          cSub.textContent = `共 ${c.total} 个任务`;
+        }
+
+        const s = ov.skills;
+        const sEl = document.getElementById('brainDashOverview_skills');
+        const sSub = document.getElementById('brainDashOverview_skillsSub');
+        if (sEl && s) {
+          sEl.textContent = `${s.total} 个`;
+          sSub.textContent = `内置 ${s.builtin} · 自定义 ${s.custom}`;
+        }
+      }
+    } catch (_) {}
+
+    // Card click navigation
+    this.view?.querySelectorAll('.brain-overview-card[data-link]').forEach(card => {
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', () => {
+        const link = card.dataset.link;
+        if (window.app && window.app.navigate) window.app.navigate('brain', link);
+      });
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+
+    // Models / Sessions / Cron
+    if (modelsEl) modelsEl.innerHTML = '<div class="brain-dash-loading">加载中...</div>';
+    if (sessionsEl) sessionsEl.innerHTML = '<div class="brain-dash-loading">加载中...</div>';
+
+    try {
+      const [modelsRes, sessionsRes, cronRes] = await Promise.all([
+        fetch('/api/models'),
+        fetch('/api/sessions'),
+        fetch('/api/cron')
+      ]);
+      const modelsData = modelsRes.ok ? (await modelsRes.json()) : { models: [] };
+      const sessionsData = sessionsRes.ok ? (await sessionsRes.json()) : { entries: [] };
+      const cronData = cronRes.ok ? (await cronRes.json()) : { jobs: [] };
+
+      const models = Array.isArray(modelsData.models) ? modelsData.models : [];
+      const sessions = Array.isArray(sessionsData.entries) ? sessionsData.entries : [];
+
+      if (modelsEl) {
+        if (!models.length) {
+          modelsEl.innerHTML = '<div class="brain-dash-empty">暂无模型数据</div>';
+        } else {
+          modelsEl.innerHTML = models.map(m => `
+            <div class="brain-dash-card brain-dash-model-card">
+              <div class="brain-dash-card-top">
+                <div class="brain-dash-card-icon is-model"><i data-lucide="cpu"></i></div>
+                <span class="brain-dash-badge is-ok">在线</span>
+              </div>
+              <div class="brain-dash-card-name">${this.esc(m.name || m.model || m.ref)}</div>
+              <div class="brain-dash-card-meta">
+                <span>${this.esc(m.provider || 'unknown')}</span>
+                <span>ctx ${this.esc(String(m.contextWindow || '--'))}</span>
+              </div>
+              <div class="brain-dash-card-tags">
+                ${m.reasoning ? '<span class="brain-dash-tag">推理</span>' : ''}
+                ${m.multimodal ? '<span class="brain-dash-tag">多模态</span>' : ''}
+                ${m.role ? `<span class="brain-dash-tag is-primary">${this.esc(m.role)}</span>` : ''}
+              </div>
+            </div>
+          `).join('');
+        }
+      }
+
+      if (sessionsEl) {
+        if (!sessions.length) {
+          sessionsEl.innerHTML = '<div class="brain-dash-empty">暂无会话数据</div>';
+        } else {
+          const sorted = [...sessions].sort((a, b) => (b.messageCount || 0) - (a.messageCount || 0));
+          sorted.forEach(s => {
+            const updatedAt = s.updatedAt ? new Date(s.updatedAt) : null;
+            const timeStr = updatedAt ? updatedAt.toLocaleString('zh-CN', { hour12: false }) : '未知';
+            const ageStr = updatedAt ? this.formatAge(Date.now() - s.updatedAt) : '--';
+            const provider = s.origin?.provider || s.modelProvider || 'unknown';
+            const isActive = updatedAt && (Date.now() - s.updatedAt < 5 * 60 * 1000);
+            const sessionTitle = s.title || s.key || '未知会话';
+            const truncatedTitle = sessionTitle.length > 28 ? sessionTitle.slice(0, 28) + '…' : sessionTitle;
+
+            const el = document.createElement('div');
+            el.className = `brain-dash-card brain-dash-session-card${isActive ? ' is-active' : ''}`;
+            el.innerHTML = `
+              <div class="brain-dash-card-top">
+                <div class="brain-dash-card-icon is-session"><i data-lucide="message-square"></i></div>
+                <span class="brain-dash-badge ${isActive ? 'is-ok' : 'is-dim'}">${isActive ? '活跃' : ageStr}</span>
+              </div>
+              <div class="brain-dash-card-name" title="${this.esc(sessionTitle)}">${this.esc(truncatedTitle)}</div>
+              <div class="brain-dash-card-meta">
+                <span>${this.esc(provider)}</span>
+                <span>${s.messageCount || 0} 条</span>
+              </div>
+              <div class="brain-dash-card-tags">
+                <span class="brain-dash-tag">${this.esc(s.model || 'unknown')}</span>
+                <span class="brain-dash-tag">${this.esc(s.kind || 'unknown')}</span>
+              </div>
+            `;
+            sessionsEl.appendChild(el);
+          });
+        }
+      }
+
       const cronEl = this.view?.querySelector('#brainDashCron');
       if (cronEl) {
         const jobs = Array.isArray(cronData.jobs) ? cronData.jobs : [];
@@ -1092,6 +1329,137 @@ class BrainModule {
     this.view.innerHTML = `
       <div class="module-page ${this.currentPage === 'dashboard' ? 'active' : ''}" data-page="dashboard">
         <div class="dashboard brain-dashboard-root">
+          <div class="brain-overview-cards" id="brainDashOverviewCards">
+            <div class="panel brain-overview-card" data-link="daily-briefing">
+              <div class="brain-overview-card-body">
+                <div class="brain-overview-card-icon"><i data-lucide="file-text"></i></div>
+                <div class="brain-overview-card-info">
+                  <div class="brain-overview-card-label">每日简报</div>
+                  <div class="brain-overview-card-value" id="brainDashOverview_briefing">--</div>
+                  <div class="brain-overview-card-sub" id="brainDashOverview_briefingSub">--</div>
+                </div>
+                <div class="brain-overview-card-link"><i data-lucide="chevron-right"></i></div>
+              </div>
+            </div>
+            <div class="panel brain-overview-card" data-link="memory-viewer">
+              <div class="brain-overview-card-body">
+                <div class="brain-overview-card-icon"><i data-lucide="database"></i></div>
+                <div class="brain-overview-card-info">
+                  <div class="brain-overview-card-label">内存统计</div>
+                  <div class="brain-overview-card-value" id="brainDashOverview_memory">--</div>
+                  <div class="brain-overview-card-sub" id="brainDashOverview_memorySub">--</div>
+                </div>
+                <div class="brain-overview-card-link"><i data-lucide="chevron-right"></i></div>
+              </div>
+            </div>
+            <div class="panel brain-overview-card" data-link="schedules">
+              <div class="brain-overview-card-body">
+                <div class="brain-overview-card-icon"><i data-lucide="activity"></i></div>
+                <div class="brain-overview-card-info">
+                  <div class="brain-overview-card-label">自动化任务</div>
+                  <div class="brain-overview-card-value" id="brainDashOverview_cron">--</div>
+                  <div class="brain-overview-card-sub" id="brainDashOverview_cronSub">--</div>
+                </div>
+                <div class="brain-overview-card-link"><i data-lucide="chevron-right"></i></div>
+              </div>
+            </div>
+            <div class="panel brain-overview-card" data-link="skills-catalog">
+              <div class="brain-overview-card-body">
+                <div class="brain-overview-card-icon"><i data-lucide="grid-3x3"></i></div>
+                <div class="brain-overview-card-info">
+                  <div class="brain-overview-card-label">技能数量</div>
+                  <div class="brain-overview-card-value" id="brainDashOverview_skills">--</div>
+                  <div class="brain-overview-card-sub" id="brainDashOverview_skillsSub">--</div>
+                </div>
+                <div class="brain-overview-card-link"><i data-lucide="chevron-right"></i></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="brain-dash-section">
+            <div class="brain-dash-section-header">
+              <i data-lucide="cpu"></i>
+              <span>Models</span>
+            </div>
+            <div class="brain-dash-models-grid" id="brainDashModels">
+              <div class="brain-dash-loading">加载中...</div>
+            </div>
+          </div>
+
+          <div class="brain-dash-section">
+            <div class="brain-dash-section-header">
+              <i data-lucide="message-square"></i>
+              <span>动态会话</span>
+            </div>
+            <div class="brain-dash-sessions-grid" id="brainDashSessions">
+              <div class="brain-dash-loading">加载中...</div>
+            </div>
+          </div>
+
+          <div class="brain-dash-section">
+            <div class="brain-dash-section-header">
+              <i data-lucide="clock"></i>
+              <span>定时任务</span>
+            </div>
+            <div class="brain-dash-cron-list" id="brainDashCron">
+              <div class="brain-dash-loading">加载中...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="module-page ${this.currentPage === 'mission-control' ? 'active' : ''}" data-page="mission-control">
+        <div class="dashboard brain-dashboard-root">
+          <div class="brain-overview-cards">
+            <div class="panel brain-overview-card" data-link="daily-briefing">
+              <div class="brain-overview-card-body">
+                <div class="brain-overview-card-icon"><i data-lucide="file-text"></i></div>
+                <div class="brain-overview-card-info">
+                  <div class="brain-overview-card-label">每日简报</div>
+                  <div class="brain-overview-card-value" id="brainOverview_briefing">--</div>
+                  <div class="brain-overview-card-sub" id="brainOverview_briefingSub">--</div>
+                </div>
+                <div class="brain-overview-card-link"><i data-lucide="chevron-right"></i></div>
+              </div>
+            </div>
+
+            <div class="panel brain-overview-card" data-link="memory-viewer">
+              <div class="brain-overview-card-body">
+                <div class="brain-overview-card-icon"><i data-lucide="database"></i></div>
+                <div class="brain-overview-card-info">
+                  <div class="brain-overview-card-label">内存统计</div>
+                  <div class="brain-overview-card-value" id="brainOverview_memory">--</div>
+                  <div class="brain-overview-card-sub" id="brainOverview_memorySub">--</div>
+                </div>
+                <div class="brain-overview-card-link"><i data-lucide="chevron-right"></i></div>
+              </div>
+            </div>
+
+            <div class="panel brain-overview-card" data-link="schedules">
+              <div class="brain-overview-card-body">
+                <div class="brain-overview-card-icon"><i data-lucide="activity"></i></div>
+                <div class="brain-overview-card-info">
+                  <div class="brain-overview-card-label">自动化任务</div>
+                  <div class="brain-overview-card-value" id="brainOverview_cron">--</div>
+                  <div class="brain-overview-card-sub" id="brainOverview_cronSub">--</div>
+                </div>
+                <div class="brain-overview-card-link"><i data-lucide="chevron-right"></i></div>
+              </div>
+            </div>
+
+            <div class="panel brain-overview-card" data-link="skills-catalog">
+              <div class="brain-overview-card-body">
+                <div class="brain-overview-card-icon"><i data-lucide="grid-3x3"></i></div>
+                <div class="brain-overview-card-info">
+                  <div class="brain-overview-card-label">技能数量</div>
+                  <div class="brain-overview-card-value" id="brainOverview_skills">--</div>
+                  <div class="brain-overview-card-sub" id="brainOverview_skillsSub">--</div>
+                </div>
+                <div class="brain-overview-card-link"><i data-lucide="chevron-right"></i></div>
+              </div>
+            </div>
+          </div>
+
           <div class="brain-dash-section">
             <div class="brain-dash-section-header">
               <i data-lucide="cpu"></i>

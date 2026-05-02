@@ -13,6 +13,7 @@ class App {
       ],
       brain: [
         { key: 'dashboard', label: '仪表盘' },
+        { key: 'mission-control', label: '任务控制' },
         { key: 'daily-briefing', label: '每日简报' },
         { key: 'automations', label: '自动化' },
         { key: 'os-documentation', label: '系统文档' },

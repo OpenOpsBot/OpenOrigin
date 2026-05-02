@@ -406,6 +406,44 @@ function listSkills() {
   return { entries, total: entries.length };
 }
 
+async function getBrainOverview() {
+  const briefings = readMemoryBriefings();
+  const memFiles = listMemoryFiles();
+  const skills = listSkills();
+  const cronData = await getCronList();
+
+  const totalSize = (memFiles.entries || []).reduce((sum, f) => sum + (f.size || 0), 0);
+  const lastMtime = (memFiles.entries || []).reduce((max, f) => {
+    const t = new Date(f.mtime).getTime();
+    return t > max ? t : max;
+  }, 0);
+
+  const okJobs = (cronData.jobs || []).filter(j => j.lastRun?.status === 'ok').length;
+  const errJobs = (cronData.jobs || []).filter(j => j.lastRun?.status !== 'ok').length;
+
+  return {
+    briefing: {
+      latest: briefings.entries?.[0] || null,
+      total: briefings.total || 0
+    },
+    memory: {
+      count: memFiles.entries?.length || 0,
+      totalSize,
+      lastUpdate: lastMtime ? new Date(lastMtime).toISOString() : null
+    },
+    cron: {
+      total: cronData.jobs?.length || 0,
+      ok: okJobs,
+      error: errJobs
+    },
+    skills: {
+      total: skills.total || 0,
+      builtin: skills.entries?.filter(s => s.source === 'builtin').length || 0,
+      custom: skills.entries?.filter(s => s.source === 'custom').length || 0
+    }
+  };
+}
+
 function readTextSafe(filePath) {
   try {
     return fs.readFileSync(filePath, 'utf8');
@@ -959,6 +997,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/api/skills') {
     sendJson(listSkills());
+    return;
+  }
+  if (req.url === '/api/brain-overview') {
+    getBrainOverview().then(data => sendJson(data)).catch(err => sendJson({ error: err.message }, 500));
     return;
   }
   if (req.url.startsWith('/api/memory-file?')) {
