@@ -1629,3 +1629,106 @@
 .status-dot.offline, .status-dot.not_started { background: #475569; }
 .status-dot.configured { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.5); }
 .status-dot.danger, .status-dot.blocked { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,0.5); }
+
+/* ---- Ops Night Overview ---- */
+.ops-night-overview {
+  margin-bottom: 20px;
+}
+
+.ops-night-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #8c959f);
+}
+
+.ops-night-header i {
+  width: 16px;
+  height: 16px;
+}
+
+.ops-night-time {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted, #6e7781);
+}
+
+.ops-night-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.ops-night-card {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ops-night-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover, 0 8px 24px rgba(0,0,0,0.3));
+}
+
+.ops-night-card-body {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+}
+
+.ops-night-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ops-night-card-icon i {
+  width: 18px;
+  height: 18px;
+}
+
+.ops-night-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ops-night-card-label {
+  font-size: 10px;
+  color: var(--text-muted, #8c959f);
+  margin-bottom: 3px;
+}
+
+.ops-night-card-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #e6edf3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ops-night-card-sub {
+  font-size: 10px;
+  color: var(--text-muted, #6e7781);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .ops-night-cards { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px) {
+  .ops-night-cards { grid-template-columns: repeat(2, 1fr); }
+}

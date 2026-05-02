@@ -44,10 +44,74 @@ class OpsModule {
       this.loadSessions(),
       this.loadHealth(),
       this.loadModels(),
-      this.loadCron()
+      this.loadCron(),
+      this.refreshNightOverview()
     ]).then(() => {
       if (window.lucide) window.lucide.createIcons();
     }).catch(() => {});
+  }
+
+  refreshNightOverview() {
+    const container = this.view?.querySelector('#opsNightOverview');
+    if (!container) return;
+
+    const timeEl = this.view?.querySelector('#opsNightTime');
+    const jobsCountEl = this.view?.querySelector('#opsNightJobsCount');
+    const jobsSubEl = this.view?.querySelector('#opsNightJobsSub');
+    const errorCountEl = this.view?.querySelector('#opsNightErrorCount');
+    const errorSubEl = this.view?.querySelector('#opsNightErrorSub');
+    const activeEl = this.view?.querySelector('#opsNightActive');
+    const activeSubEl = this.view?.querySelector('#opsNightActiveSub');
+    const brainSummaryEl = this.view?.querySelector('#opsNightBrainSummary');
+    const brainSubEl = this.view?.querySelector('#opsNightBrainSub');
+    const labSummaryEl = this.view?.querySelector('#opsNightLabSummary');
+    const labSubEl = this.view?.querySelector('#opsNightLabSub');
+
+    if (timeEl) timeEl.textContent = new Date().toLocaleString('zh-CN', { hour12: false });
+
+    return fetch('/api/ops-night-overview')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d || d.error) return;
+
+        // 晚10点后任务
+        if (jobsCountEl) jobsCountEl.textContent = `${d.nightJobsCount} 个`;
+        if (jobsSubEl) {
+          const jobNames = (d.nightJobs || []).map(j => j.name).join('、');
+          jobsSubEl.textContent = jobNames || '无';
+        }
+
+        // 异常
+        if (errorCountEl) errorCountEl.textContent = `${d.errorCount} 个`;
+        if (errorSubEl) errorSubEl.textContent = d.errorCount > 0 ? '需关注' : '全部正常';
+
+        // 活跃会话
+        if (activeEl) activeEl.textContent = `${d.events.activeNow} 个`;
+        if (activeSubEl) activeSubEl.textContent = `运行时长 ${d.events.uptimeDays} 天，共 ${d.events.totalEvents} 条事件`;
+
+        // 大脑模块
+        if (brainSummaryEl) brainSummaryEl.textContent = `${d.brain.briefings} 份简报`;
+        if (brainSubEl) brainSubEl.textContent = `${d.brain.memoryFiles} 文件 · ${d.brain.skillsTotal} 技能`;
+
+        // 实验室
+        if (labSummaryEl) labSummaryEl.textContent = `${d.lab.ideasCount} 创意 · ${d.lab.prototypesCount} 原型`;
+        if (labSubEl) labSubEl.textContent = '数据来自实验室模块';
+
+        // 卡片点击跳转
+        container?.querySelectorAll('.ops-night-card[data-link]').forEach(card => {
+          card.addEventListener('click', () => {
+            const link = card.dataset.link;
+            if (window.app && window.app.navigate) {
+              if (link === 'brain-dashboard') window.app.navigate('brain', 'dashboard');
+              else if (link === 'lab-dashboard') window.app.navigate('laboratory', 'dashboard');
+              else window.app.navigate('ops', link);
+            }
+          });
+        });
+
+        if (window.lucide) window.lucide.createIcons();
+      })
+      .catch(() => {});
   }
 
   render() {
@@ -57,6 +121,7 @@ class OpsModule {
     this.view.innerHTML = `
       <div class="module-page ${this.currentPage === 'dashboard' ? 'active' : ''}" data-page="dashboard">
         <div class="dashboard ops-dashboard">
+          ${this.renderNightOverview()}
           ${this.renderAgentsPanel()}
           ${this.renderStageLanes()}
           ${this.renderSessionsPanel()}
@@ -157,6 +222,60 @@ class OpsModule {
   }
 
   // ---- Dashboard panels ----
+
+  renderNightOverview() {
+    return `
+      <div class="ops-night-overview" id="opsNightOverview">
+        <div class="ops-night-header">
+          <i data-lucide="moon-stars"></i>
+          <span>夜间概览</span>
+          <span class="ops-night-time" id="opsNightTime">--</span>
+        </div>
+        <div class="ops-night-cards" id="opsNightCards">
+          <div class="panel ops-night-card" data-link="tasks">
+            <div class="ops-night-card-icon"><i data-lucide="clock"></i></div>
+            <div class="ops-night-card-info">
+              <div class="ops-night-card-label">晚10点后任务</div>
+              <div class="ops-night-card-value" id="opsNightJobsCount">--</div>
+              <div class="ops-night-card-sub" id="opsNightJobsSub">--</div>
+            </div>
+          </div>
+          <div class="panel ops-night-card" data-link="tasks">
+            <div class="ops-night-card-icon"><i data-lucide="alert-triangle"></i></div>
+            <div class="ops-night-card-info">
+              <div class="ops-night-card-label">服务异常</div>
+              <div class="ops-night-card-value" id="opsNightErrorCount">--</div>
+              <div class="ops-night-card-sub" id="opsNightErrorSub">--</div>
+            </div>
+          </div>
+          <div class="panel ops-night-card" data-link="tasks">
+            <div class="ops-night-card-icon"><i data-lucide="scan-search"></i></div>
+            <div class="ops-night-card-info">
+              <div class="ops-night-card-label">活跃会话</div>
+              <div class="ops-night-card-value" id="opsNightActive">--</div>
+              <div class="ops-night-card-sub" id="opsNightActiveSub">--</div>
+            </div>
+          </div>
+          <div class="panel ops-night-card" data-link="brain-dashboard">
+            <div class="ops-night-card-icon"><i data-lucide="brain"></i></div>
+            <div class="ops-night-card-info">
+              <div class="ops-night-card-label">大脑模块</div>
+              <div class="ops-night-card-value" id="opsNightBrainSummary">--</div>
+              <div class="ops-night-card-sub" id="opsNightBrainSub">--</div>
+            </div>
+          </div>
+          <div class="panel ops-night-card" data-link="lab-dashboard">
+            <div class="ops-night-card-icon"><i data-lucide="flask-conical"></i></div>
+            <div class="ops-night-card-info">
+              <div class="ops-night-card-label">实验室</div>
+              <div class="ops-night-card-value" id="opsNightLabSummary">--</div>
+              <div class="ops-night-card-sub" id="opsNightLabSub">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
   renderAgentsPanel() {
     return `

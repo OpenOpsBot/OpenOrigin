@@ -924,6 +924,75 @@ function getCronList() {
   return withCache('cron', 60000, () => getCronListRaw());
 }
 
+// ---- Ops Night Overview API ----
+async function getOpsNightOverview() {
+  try {
+    const cronData = await getCronList();
+    const ideasData = readIdeas();
+    const prototypesData = readPrototypes();
+
+    const now = new Date();
+    const today22 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 22, 0, 0).getTime();
+
+    const jobs = Array.isArray(cronData.jobs) ? cronData.jobs : [];
+
+    // 晚10点后执行的任务
+    const nightJobs = jobs.filter(j => {
+      if (!j.lastRun?.at) return false;
+      return new Date(j.lastRun.at).getTime() >= today22;
+    });
+
+    // 异常任务
+    const errorJobs = jobs.filter(j => j.lastRun?.status !== 'ok');
+
+    // 会话/事件数据
+    let eventsData = { entries: [], activeNow: 0, uptimeDays: 0 };
+    try {
+      eventsData = getEventsFromSessions();
+    } catch (_) {}
+
+    const briefing = readMemoryBriefings();
+    const skills = listSkills();
+    const memFiles = listMemoryFiles();
+
+    const totalSize = (memFiles.entries || []).reduce((sum, f) => sum + (f.size || 0), 0);
+    const lastMtime = (memFiles.entries || []).reduce((max, f) => {
+      const t = new Date(f.mtime).getTime();
+      return t > max ? t : max;
+    }, 0);
+
+    return {
+      nightJobs,
+      nightJobsCount: nightJobs.length,
+      errorJobs,
+      errorCount: errorJobs.length,
+      cronTotal: jobs.length,
+      events: {
+        totalEvents: eventsData.entries?.length || 0,
+        activeNow: eventsData.activeNow || 0,
+        uptimeDays: eventsData.uptimeDays || 0
+      },
+      brain: {
+        briefings: briefing.total || 0,
+        briefingLatest: briefing.entries?.[0]?.date || null,
+        memoryFiles: memFiles.entries?.length || 0,
+        memorySize: totalSize,
+        memoryLastUpdate: lastMtime ? new Date(lastMtime).toISOString() : null,
+        skillsTotal: skills.total || 0,
+        skillsBuiltin: skills.entries?.filter(s => s.source === 'builtin').length || 0,
+        skillsCustom: skills.entries?.filter(s => s.source === 'custom').length || 0
+      },
+      lab: {
+        ideasCount: ideasData.ideas?.length || (Array.isArray(ideasData) ? ideasData.length : 0),
+        prototypesCount: prototypesData.prototypes?.length || (Array.isArray(prototypesData) ? prototypesData.length : 0)
+      },
+      generatedAt: new Date().toISOString()
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 // ---- HTTP Server ----
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -1001,6 +1070,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/api/brain-overview') {
     getBrainOverview().then(data => sendJson(data)).catch(err => sendJson({ error: err.message }, 500));
+    return;
+  }
+  if (req.url === '/api/ops-night-overview') {
+    getOpsNightOverview().then(data => sendJson(data)).catch(err => sendJson({ error: err.message }, 500));
     return;
   }
   if (req.url.startsWith('/api/memory-file?')) {
