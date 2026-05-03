@@ -1,14 +1,14 @@
 import { AppShell } from '@/components/layout/AppShell'
 import { useAppStore } from '@/stores/appStore'
 import { Dashboard as BrainDashboard, DailyBriefing, Automations, SystemDocumentation, DataAnalysis, MemoryViewer, SkillsCatalog } from '@/modules/brain'
-import { Dashboard as OpsDashboard, Tasks as OpsTasks } from '@/modules/ops'
+import { Dashboard as OpsDashboard, Tasks as OpsTasks, OrgChart } from '@/modules/ops'
 import { Dashboard as LabDashboard, Prototypes, Ideas, Research } from '@/modules/laboratory'
 
 const MODULE_TAB_COMPONENTS: Record<string, Record<string, React.FC>> = {
   ops: {
     dashboard: OpsDashboard,
     tasks: OpsTasks,
-    'org-chart': OpsDashboard, // placeholder – will be replaced
+    'org-chart': OrgChart,
   },
   brain: {
     dashboard: BrainDashboard,
