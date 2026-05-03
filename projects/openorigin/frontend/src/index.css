@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #07080d;
+  --bg-secondary: rgba(14, 17, 24, 0.88);
+  --bg-tertiary: rgba(20, 24, 34, 0.96);
+  --bg-elevated: rgba(12, 14, 22, 0.96);
+  --text-primary: #f5f7ff;
+  --text-secondary: #9aa4c7;
+  --text-dim: #6d7390;
+  --border-color: rgba(130, 145, 190, 0.16);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  --shadow-soft: 0 14px 40px rgba(0, 0, 0, 0.28);
+  --accent-gradient: linear-gradient(120deg, #7c3aed 0%, #ec4899 100%);
+  --ops-color: #f59e0b;
+  --brain-color: #06b6d4;
+  --lab-color: #22c55e;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(124, 58, 237, 0.28), transparent 28%),
+    radial-gradient(circle at top right, rgba(236, 72, 153, 0.18), transparent 24%),
+    radial-gradient(circle at bottom center, rgba(6, 182, 212, 0.12), transparent 28%),
+    #07080d;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+::-webkit-scrollbar-thumb { background: rgba(154, 164, 199, 0.24); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(154, 164, 199, 0.36); }
+
+.module-ops { --module-color: var(--ops-color); }
+.module-brain { --module-color: var(--brain-color); }
+.module-laboratory { --module-color: var(--lab-color); }

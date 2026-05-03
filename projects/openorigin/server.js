@@ -17,8 +17,6 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
-// ---- Client Ops Data (local JSON) ----
-const CLIENT_OPS_PATH = path.join(STATIC_DIR, 'data', 'client-ops-sample.json');
 const OPENCLAW_CONFIG_PATH = '/Users/ze/.openclaw/openclaw.json';
 const IDENTITY_PATH = '/Users/ze/.openclaw/workspace/IDENTITY.md';
 const MEMORY_DIR = '/Users/ze/.openclaw/workspace/memory';
@@ -58,13 +56,6 @@ async function withCache(key, ttlMs, loader) {
   return task;
 }
 
-function readClientOpsData() {
-  try {
-    return JSON.parse(fs.readFileSync(CLIENT_OPS_PATH, 'utf8'));
-  } catch (e) {
-    return { error: 'read_error', detail: e.message };
-  }
-}
 
 function stripMarkdownLine(line = '') {
   return String(line)
@@ -1036,10 +1027,6 @@ const server = http.createServer((req, res) => {
   }
   if (req.url === '/api/agents') {
     sendJson(getAgentsList());
-    return;
-  }
-  if (req.url === '/api/client-ops') {
-    sendJson(readClientOpsData());
     return;
   }
   if (req.url === '/api/models') {
