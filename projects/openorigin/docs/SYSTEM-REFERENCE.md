@@ -20,7 +20,7 @@
 - `js/tabs.js` + `js/dock.js`：轻导航层；前者管理顶部页签，后者管理底部模块切换。
 - `server.js`：本地 `http://localhost:8000` 的静态服务与数据聚合层。当前核心职责包括：
   - 提供静态资源服务
-  - 读取 `data/client-ops-sample.json` 暴露 `/api/client-ops`
+  - 读取 `data/ideas.json` 与 `data/prototypes.json` 暴露示例数据
   - 读取 `~/.openclaw/agents/main/sessions/sessions.json` 暴露 `/api/sessions`
   - 调 `openclaw health --json` 暴露 `/api/health`
   - 调 `openclaw cron list --json` 并做 60s cache，暴露 `/api/cron`
@@ -101,7 +101,8 @@
   - `/api/cron`
   - `/api/agents`
   - `/api/models`
-  - `/api/client-ops`
+  - `/api/ideas`（示例数据）
+  - `/api/prototypes`（示例数据）
   - `/api/memory-briefings`
   - `/api/automations`
   - `/api/system-reference`
