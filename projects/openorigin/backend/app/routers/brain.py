@@ -143,6 +143,92 @@ async def get_memory_briefings():
         return {"error": str(e)}
 
 
+# ── Memory Viewer ────────────────────────────────────────────
+WORKSPACE_DIR = "/Users/ze/.openclaw/workspace"
+
+# Files to show in the "long-term data" section (root workspace)
+LONGTERM_FILES = [
+    "MEMORY.md",
+    "AGENTS.md",
+    "IDENTITY.md",
+    "SOUL.md",
+    "USER.md",
+    "TOOLS.md",
+    "HEARTBEAT.md",
+]
+
+
+def _file_entry(path: str) -> dict:
+    st = os.stat(path)
+    return {
+        "name": os.path.basename(path),
+        "path": path,
+        "size": st.st_size,
+        "mtime": st.st_mtime * 1000,  # ms for JS compat
+    }
+
+
+@router.get("/memory-files")
+async def get_memory_files():
+    """List all daily memory files in memory/ dir, sorted newest first."""
+    try:
+        files = sorted(
+            [f for f in os.listdir(MEMORY_DIR) if f.endswith(".md")],
+            reverse=True,
+        )
+        entries = [_file_entry(os.path.join(MEMORY_DIR, f)) for f in files]
+        return {"entries": entries, "total": len(entries)}
+    except Exception as e:
+        return {"entries": [], "error": str(e)}
+
+
+@router.get("/memory-file")
+async def get_memory_file(file: str):
+    """Get content of a specific memory file."""
+    # Security: prevent path traversal
+    safe_name = os.path.basename(file)
+    path = os.path.join(MEMORY_DIR, safe_name)
+    if not path.startswith(MEMORY_DIR):
+        return {"error": "Invalid file name"}
+    try:
+        with open(path) as f:
+            content = f.read()
+        return {"name": safe_name, "content": content, "path": path}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@router.get("/memory-root")
+async def get_memory_root():
+    """List long-term memory files in workspace root."""
+    try:
+        entries = []
+        for fname in LONGTERM_FILES:
+            path = os.path.join(WORKSPACE_DIR, fname)
+            if os.path.exists(path):
+                entries.append(_file_entry(path))
+        return {"entries": entries, "total": len(entries)}
+    except Exception as e:
+        return {"entries": [], "error": str(e)}
+
+
+@router.get("/memory-root-file")
+async def get_memory_root_file(file: str):
+    """Get content of a specific root workspace file."""
+    safe_name = os.path.basename(file)
+    path = os.path.join(WORKSPACE_DIR, safe_name)
+    if not path.startswith(WORKSPACE_DIR):
+        return {"error": "Invalid file name"}
+    if safe_name not in LONGTERM_FILES:
+        return {"error": "File not allowed"}
+    try:
+        with open(path) as f:
+            content = f.read()
+        return {"name": safe_name, "content": content, "path": path}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ── Automations ───────────────────────────────────────────────
 
 AUTOMATION_SCRIPTS_DIR = "/Users/ze/.openclaw/workspace/projects/openorigin/automation/scripts"
@@ -376,6 +462,154 @@ async def get_system_reference():
         return {"content": "", "error": "not_found"}
     with open(SYSTEM_REF) as f:
         return {"content": f.read()}
+
+
+# ── Data Analysis ─────────────────────────────────────────────
+import json as _json
+
+SESSIONS_PATH = "/Users/ze/.openclaw/agents/main/sessions/sessions.json"
+CRON_JOBS_PATH = "/Users/ze/.openclaw/cron/jobs.json"
+
+
+def _parse_ms(ms: int) -> str:
+    from datetime import datetime, timezone
+    dt = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    return dt.strftime("%Y-%m-%d %H:%M")
+
+
+def _read_jsonl_lines(path: str) -> int:
+    """Count non-empty lines in a .jsonl file."""
+    try:
+        with open(path) as f:
+            return sum(1 for line in f if line.strip())
+    except Exception:
+        return 0
+
+
+@router.get("/data-analysis")
+async def get_data_analysis():
+    try:
+        # ── Sessions ──
+        with open(SESSIONS_PATH) as f:
+            sessions_index = _json.load(f)
+
+        session_keys = list(sessions_index.keys())
+        total_sessions = len(session_keys)
+
+        # Categorise
+        telegram_sessions = [k for k in session_keys if ":telegram:" in k]
+        cron_sessions = [k for k in session_keys if ":cron:" in k]
+        subagent_sessions = [k for k in session_keys if ":subagent:" in k]
+
+        # Find active now (updatedAt within last 5 min)
+        import time
+        now_ms = time.time() * 1000
+        active_now = sum(
+            1 for k, v in sessions_index.items()
+            if (now_ms - v.get("updatedAt", 0)) < 5 * 60 * 1000
+        )
+
+        # Uptime — earliest session createdAt
+        earliest = min(
+            (v.get("createdAtMs", v.get("updatedAt", now_ms)) for v in sessions_index.values()),
+            default=now_ms
+        )
+        uptime_days = max(1, round((now_ms - earliest) / (1000 * 60 * 60 * 24), 1))
+
+        # Model distribution — count authProfileOverride per session kind
+        model_map: dict = {}
+        for v in sessions_index.values():
+            model = v.get("authProfileOverride", "default")
+            model_map[model] = model_map.get(model, 0) + 1
+
+        model_distribution = [
+            {"model": m, "count": c}
+            for m, c in sorted(model_map.items(), key=lambda x: -x[1])
+        ]
+
+        # Hot sessions — top 5 by updatedAt recency
+        hot_sessions = sorted(
+            [
+                {
+                    "id": k,
+                    "kind": "telegram" if ":telegram:" in k else "cron" if ":cron:" in k else "subagent",
+                    "updatedAt": v.get("updatedAt", 0),
+                    "label": v.get("label", k.split(":")[-1][:8]),
+                }
+                for k, v in sessions_index.items()
+            ],
+            key=lambda x: -x["updatedAt"]
+        )[:5]
+        for s in hot_sessions:
+            s["updatedAt"] = _parse_ms(s["updatedAt"])
+
+        # Session type counts
+        session_types = [
+            {"type": "Telegram", "count": len(telegram_sessions)},
+            {"type": "Cron", "count": len(cron_sessions)},
+            {"type": "Subagent", "count": len(subagent_sessions)},
+        ]
+
+        # ── Timeline — last 20 sessions sorted by updatedAt ──
+        timeline = sorted(
+            [
+                {
+                    "id": k,
+                    "kind": "telegram" if ":telegram:" in k else "cron" if ":cron:" in k else "subagent",
+                    "updatedAt": _parse_ms(v.get("updatedAt", 0)),
+                    "sessionFile": v.get("sessionFile", ""),
+                }
+                for k, v in sessions_index.items()
+            ],
+            key=lambda x: x["updatedAt"],
+            reverse=True
+        )[:20]
+
+        # ── Cron jobs ──
+        try:
+            with open(CRON_JOBS_PATH) as f:
+                cron_data = _json.load(f)
+            cron_jobs = [
+                {
+                    "id": j["id"],
+                    "name": j["name"],
+                    "description": j.get("description", ""),
+                    "enabled": j.get("enabled", False),
+                    "schedule": j.get("schedule", {}).get("expr", ""),
+                    "tz": j.get("schedule", {}).get("tz", ""),
+                }
+                for j in cron_data.get("jobs", [])
+            ]
+            cron_enabled = sum(1 for j in cron_jobs if j["enabled"])
+        except Exception:
+            cron_jobs = []
+            cron_enabled = 0
+
+        # ── Events count from session files ──
+        total_events = 0
+        for v in sessions_index.values():
+            sf = v.get("sessionFile", "")
+            if sf:
+                total_events += _read_jsonl_lines(sf)
+
+        return {
+            "stats": {
+                "totalSessions": total_sessions,
+                "totalEvents": total_events,
+                "uptimeDays": uptime_days,
+                "activeNow": active_now,
+            },
+            "modelDistribution": model_distribution,
+            "hotSessions": hot_sessions,
+            "sessionTypes": session_types,
+            "timeline": timeline,
+            "cronJobs": cron_jobs,
+            "cronEnabled": cron_enabled,
+            "cronTotal": len(cron_jobs),
+        }
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return {"error": str(e)}
 
 
 # ── Brain Overview ────────────────────────────────────────────

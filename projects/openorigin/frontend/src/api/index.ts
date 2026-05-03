@@ -30,6 +30,11 @@ export const api = {
   getCron: () => request('/cron'),
   getHealth: () => request('/health'),
   getBrainOverview: () => request('/brain-overview'),
+  getDataAnalysis: () => request<import('@/types').DataAnalysis>('/data-analysis'),
+  getMemoryRoot: () => request('/memory-root'),
+  getMemoryRootFile: (file: string) => request(`/memory-root-file?file=${encodeURIComponent(file)}`),
+  getMemoryFiles: () => request('/memory-files'),
+  getMemoryFile: (file: string) => request(`/memory-file?file=${encodeURIComponent(file)}`),
   getOpsNightOverview: () => request('/ops-night-overview'),
   getModels: () => request('/models'),
 }

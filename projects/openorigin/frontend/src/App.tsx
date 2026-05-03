@@ -1,6 +1,6 @@
 import { AppShell } from '@/components/layout/AppShell'
 import { useAppStore } from '@/stores/appStore'
-import { Dashboard as BrainDashboard, DailyBriefing, Automations, SkillsCatalog } from '@/modules/brain'
+import { Dashboard as BrainDashboard, DailyBriefing, Automations, SystemDocumentation, DataAnalysis, MemoryViewer, SkillsCatalog } from '@/modules/brain'
 import { Dashboard as OpsDashboard, Tasks as OpsTasks } from '@/modules/ops'
 import { Dashboard as LabDashboard, Prototypes, Ideas, Research } from '@/modules/laboratory'
 
@@ -14,9 +14,9 @@ const MODULE_TAB_COMPONENTS: Record<string, Record<string, React.FC>> = {
     dashboard: BrainDashboard,
     'daily-briefing': DailyBriefing,
     automations: Automations,
-    'os-documentation': BrainDashboard, // placeholder
-    'data-analysis': BrainDashboard,   // placeholder
-    'memory-viewer': BrainDashboard,   // placeholder
+    'os-documentation': SystemDocumentation,
+    'data-analysis': DataAnalysis,
+    'memory-viewer': MemoryViewer,
     'skills-catalog': SkillsCatalog,
   },
   laboratory: {

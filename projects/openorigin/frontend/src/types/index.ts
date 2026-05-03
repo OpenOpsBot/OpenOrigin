@@ -53,6 +53,24 @@ export interface Skill {
   category: string
 }
 
+export interface DataAnalysisStats {
+  totalSessions: number
+  totalEvents: number
+  uptimeDays: number
+  activeNow: number
+}
+
+export interface DataAnalysis {
+  stats: DataAnalysisStats
+  modelDistribution: { model: string; count: number }[]
+  hotSessions: { id: string; kind: string; updatedAt: string; label: string }[]
+  sessionTypes: { type: string; count: number }[]
+  timeline: { id: string; kind: string; updatedAt: string; sessionFile: string }[]
+  cronJobs: { id: string; name: string; description: string; enabled: boolean; schedule: string; tz: string }[]
+  cronEnabled: number
+  cronTotal: number
+}
+
 // ─── Lab Module ─────────────────────────────────────────────────
 export interface Prototype {
   id: string

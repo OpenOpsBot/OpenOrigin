@@ -1,4 +1,7 @@
 export { BrainDashboard as Dashboard } from './pages/Dashboard'
 export { DailyBriefing } from './pages/DailyBriefing'
 export { Automations } from './pages/Automations'
+export { SystemDocumentation } from './pages/SystemDocumentation'
+export { DataAnalysis } from './pages/DataAnalysis'
+export { MemoryViewer } from './pages/MemoryViewer'
 export { SkillsCatalog } from './pages/SkillsCatalog'
