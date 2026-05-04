@@ -81,7 +81,7 @@ export function OrgChart() {
         </div>
         <div className="org-chart-stat compact phase" style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
           <strong style={{ display: 'block', fontSize: 24, lineHeight: 1, color: '#a78bfa', marginBottom: 4 }}>Phase 01</strong>
-          <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>纯视觉占位</span>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>纯视觉占位</span>
         </div>
       </div>
 
