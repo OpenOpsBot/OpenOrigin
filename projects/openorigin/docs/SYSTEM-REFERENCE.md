@@ -1,23 +1,9 @@
 # SYSTEM-REFERENCE
 
 ## 今日变更
-- `openorigin` 今日共 3 次 workspace snapshot 提交（b2810a9 / 3441f1d / e5169dd），涵盖前端重构、brain 模块扩展和 backend 搭建。
-- **前端技术栈迁移**：从 legacy plain JS（`js/app.js`、`modules/brain/brain.js`）切换到 Vite + React + TypeScript。前端项目移至 `frontend/` 目录，结构：
-  - `src/App.tsx`（主入口）、`src/main.tsx`（React 挂载）、`src/index.css`（全局样式）
-  - `src/api/index.ts`（API 层）、`src/stores/appStore.ts`（Zustand 状态）、`src/types/index.ts`（类型定义）
-  - `src/components/layout/`：AppShell、TabBar、Dock
-  - `src/components/ui/`：Badge、Panel、StatusDot
-  - `src/modules/ops`：OrgChart、Dashboard、Tasks
-  - `src/modules/brain`：Dashboard、DailyBriefing、Automations、SystemDocumentation、DataAnalysis、MemoryViewer、SkillsCatalog
-  - `src/modules/laboratory`：Dashboard、Ideas、Prototypes、Research
-  - 构建产物输出至 `frontend/dist/`
-- **后端 FastAPI 初建**：`backend/app/` 已包含 `main.py`（FastAPI 实例）、`routers/brain.py`、`routers/ops.py`、`routers/lab.py`、`models/`、`schemas/` 目录。依赖 `requirements.txt`。
-- 新增页面：`MemoryViewer.tsx`（brain）、`SkillsCatalog.tsx`（brain）、`Research.tsx`（laboratory）、`Prototypes.tsx`（laboratory）。
-- 当前 Cron 状态（均为 error/timeout）：
-  - `system-reference-rollup`（本次）：`lastStatus: error`、`consecutiveErrors: 2`、`lastDurationMs: 2400071`
-  - `backup-private-repo`：`lastStatus: error`、`consecutiveErrors: 1`、`lastDurationMs: 180045`
-  - `nightly-self-optimize`：`lastStatus: error`、`consecutiveErrors: 3`、`lastDurationMs: 3084063`
-  - `daily-briefing`：`lastStatus: error`、`consecutiveErrors: 4`、`lastDurationMs: 2400018`
+- `openorigin` 今日共 4 次 workspace snapshot 提交（c978cf3 / ed42291 / f98c4ee / 01a972b），涵盖 memory 文件归档和 `API.md` 审计修复。
+- **API 审计修复（f98c4ee）**：`API.md` 中已废弃的 `GET /api/client-ops` 端点描述已移除，对应 `data/client-ops-sample.json` 已在 2026-05-03 删除，服务端实际已无此路由。
+- 所有 4 个 cron 任务持续 error/timeout，`daily-briefing` 连续失败 4 次，`nightly-self-optimize` 3 次，`system-reference-rollup` 2 次，`backup-private-repo` 1 次。结构性性能问题未解决。
 
 ## 当前架构概览
 - `frontend/`：Vite + React 18 + TypeScript 前端，路由/状态/Zustand + TanStack Query，Tailwind CSS + Lucide 图标。构建命令 `npm run build`。
@@ -47,15 +33,16 @@
 - Legacy static server（`server.js`，待替换）
 
 ## 活跃定时任务
-- `system-reference-rollup`：`20 23 * * *`（Asia/Shanghai），timeout 2400s，enabled。当前执行中，`consecutiveErrors: 2`。
-- `backup-private-repo`：`0 */2 * * *`（Asia/Shanghai，staggerMs: 300000），timeout 180s，enabled。`consecutiveErrors: 1`。
-- `nightly-self-optimize`：`15 2 * * *`（Asia/Shanghai），timeout 2400s，enabled。`consecutiveErrors: 3`。
-- `daily-briefing`：`30 8 * * *`（Asia/Shanghai），timeout 2400s，enabled。`consecutiveErrors: 4`，是当前最不稳定的任务。
+- `system-reference-rollup`：`20 23 * * *`（Asia/Shanghai），timeout 2400s，enabled。`consecutiveErrors: 3`（本次更新后递增）。
+- `backup-private-repo`：`0 */2 * * *`（Asia/Shanghai，staggerMs: 300000），timeout 180s，enabled。`consecutiveErrors: 2`。
+- `nightly-self-optimize`：`15 2 * * *`（Asia/Shanghai），timeout 2400s，enabled。`consecutiveErrors: 4`。
+- `daily-briefing`：`30 8 * * *`（Asia/Shanghai），timeout 2400s，enabled。`consecutiveErrors: 5`，是当前连续失败最多的任务。
 - 所有任务 `delivery` 均为 announce -> telegram:6810379425，状态全为 error/timeout。
 
 ## 已知问题
-- **全部 4 个 cron 任务均处于 error 状态**，全部因 timeout 失败。最严重：`daily-briefing`（4 次）、`nightly-self-optimize`（3 次）。
-- `system-reference-rollup` 本次执行亦 timeout（`lastDurationMs: 2400071`），说明即使是"文档更新"类任务也在 2400s 内无法完成，疑似存在结构性性能问题。
+- **全部 4 个 cron 任务均处于 error 状态**，全部因 timeout 失败。最严重：`daily-briefing`（5 次）、`nightly-self-optimize`（4 次）。
+- `system-reference-rollup` 本次执行仍 timeout（`lastDurationMs: ~2400000`），说明即使是"文档更新"类任务也在 2400s 内无法完成，疑似存在结构性性能问题。
+- `backup-private-repo` 已连续失败 2 次，timeout 180s 可能仍偏短（实际耗时 180045ms）。
 - 前端从 legacy plain JS 到 React 的迁移刚完成，`server.js` 与新 FastAPI backend 并存，过渡期间 API 层职责待明确。
 - Brain 的 `agents`、`schedules` 页面仍为占位页，未接真实后端。
 - Laboratory 模块刚引入 `Research` 和 `Prototypes` 页面，内容待填充。
