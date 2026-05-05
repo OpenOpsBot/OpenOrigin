@@ -1,9 +1,9 @@
 # SYSTEM-REFERENCE
 
 ## 今日变更
-- `openorigin` 今日共 4 次 workspace snapshot 提交（c978cf3 / ed42291 / f98c4ee / 01a972b），涵盖 memory 文件归档和 `API.md` 审计修复。
-- **API 审计修复（f98c4ee）**：`API.md` 中已废弃的 `GET /api/client-ops` 端点描述已移除，对应 `data/client-ops-sample.json` 已在 2026-05-03 删除，服务端实际已无此路由。
-- 所有 4 个 cron 任务持续 error/timeout，`daily-briefing` 连续失败 4 次，`nightly-self-optimize` 3 次，`system-reference-rollup` 2 次，`backup-private-repo` 1 次。结构性性能问题未解决。
+- `openorigin` 今日共 4 次 workspace snapshot 提交（c376198 / 70aa08b / f8f5056 / 0247fee），涵盖 memory 文件归档和 `OrgChart.tsx` 字体一致性修复。
+- **字体一致性修复（f8f5056）**：`OrgChart.tsx:84` Phase 01 标签 `fontSize: 11` → `fontSize: 12`，与同组件内其他 stat 标签及全局 `.secondary-text` 样式（12px）保持一致。
+- 所有 4 个 cron 任务持续 error/timeout，`daily-briefing` 连续失败 5 次，`nightly-self-optimize` 4 次，`system-reference-rollup` 3 次，`backup-private-repo` 2 次。结构性性能问题未解决。
 
 ## 当前架构概览
 - `frontend/`：Vite + React 18 + TypeScript 前端，路由/状态/Zustand + TanStack Query，Tailwind CSS + Lucide 图标。构建命令 `npm run build`。
@@ -23,12 +23,12 @@
 - Brain / 自动化（`Automations.tsx`）
 - Brain / 系统文档（`SystemDocumentation.tsx`）
 - Brain / 数据分析（`DataAnalysis.tsx`）
-- Brain / 记忆查看器（`MemoryViewer.tsx`，新增）
-- Brain / 技能目录（`SkillsCatalog.tsx`，新增）
+- Brain / 记忆查看器（`MemoryViewer.tsx`）
+- Brain / 技能目录（`SkillsCatalog.tsx`）
 - Laboratory / 仪表盘（`Dashboard.tsx`）
 - Laboratory / 创意库（`Ideas.tsx`）
-- Laboratory / 原型（`Prototypes.tsx`，新增）
-- Laboratory / 研究（`Research.tsx`，新增）
+- Laboratory / 原型（`Prototypes.tsx`）
+- Laboratory / 研究（`Research.tsx`）
 - Local API Layer（FastAPI backend）
 - Legacy static server（`server.js`，待替换）
 
