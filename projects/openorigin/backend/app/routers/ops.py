@@ -43,7 +43,6 @@ async def get_sessions():
 
 @router.get("/agents")
 async def get_agents():
-    # Placeholder – read from openclaw status
     sessions = get_openclaw_sessions()
     return [
         {
