@@ -272,19 +272,6 @@ Session message history loaded from the backing JSONL session file for a known s
 
 ---
 
-### `GET /api/client-ops`
-
-Client operations staging data (local JSON demo file).
-
-**Source:** `data/client-ops-sample.json` (local file; deprecated — file removed 2026-05-03, endpoint not implemented in server.js)
-
-**Response:** Returns `{ "error": "server_error", "detail": "not implemented" }` as the source file no longer exists.
-
-**Error codes**
-- `server_error` — Source data file removed; endpoint not implemented
-
----
-
 ## Error Response Format
 
 All error responses share this shape:
